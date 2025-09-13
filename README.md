@@ -122,10 +122,10 @@ The app starts with bundled **sample_data.csv** and maintains a combined, in-mem
 
 ## Assumptions
 
-- **Unique IDs:** Every row has an `id`, and no two rows share the same `id`. We use `id` to decide whether to append or replace rows during merges.
-- **Consistent units & grain:** All data uses the same units (e.g., kWh) and the same level of detail (e.g., one row per site–date–type). Mixing units or daily vs. monthly rows is out of scope for Round 1.
-- **Session-only data:** Merges happen in memory and are not saved between app sessions. “Reset” returns to the bundled sample.
-- **Exact numeric matches:** “Identical” means exactly the same values after cleaning (no tolerance). If needed, a small tolerance can be added later.
+-   **Unique IDs:** Every row has an `id`, and no two rows share the same `id`. We use `id` to decide whether to append or replace rows during merges.
+-   **Consistent units & grain:** All data uses the same units (e.g., kWh) and the same level of detail (e.g., one row per site–date–type). Mixing units or daily vs. monthly rows is out of scope for Round 1.
+-   **Session-only data:** Merges happen in memory and are not saved between app sessions. “Reset” returns to the bundled sample.
+-   **Exact numeric matches:** “Identical” means exactly the same values after cleaning (no tolerance). If needed, a small tolerance can be added later.
 
 ------------------------------------------------------------------------
 
