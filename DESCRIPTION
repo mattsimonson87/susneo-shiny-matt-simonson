@@ -2,11 +2,12 @@ Package: susneoShinyMatt
 Title: SUSNEO Shiny App (Take-Home)
 Version: 0.0.0.9000
 Description: Shiny app scaffold with modules, R6, tests, and CI.
-Authors@R: person("Matthew", "Simonson",
-  email = "YOUR_EMAIL_HERE",
-  role = c("aut", "cre")
-)
-Maintainer: Matthew Simonson <YOUR_EMAIL_HERE>
+Authors@R: 
+    person("Matthew", "Simonson",
+      email = "mattsimonson87@users.noreply.github.com",
+      role = c("aut", "cre")
+    )
+Maintainer: Matthew Simonson <mattsimonson87@users.noreply.github.com>
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
