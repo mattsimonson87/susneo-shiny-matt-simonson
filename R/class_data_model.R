@@ -9,7 +9,11 @@ DataModel <- R6::R6Class("DataModel",
                              path <- system.file("extdata", "sample_data.csv", package = "susneoShinyMatt")
                              if (!nzchar(path) || !file.exists(path)) stop("Bundled sample not found at: ", path)
                              
-                             df <- readr::read_csv(path, show_col_types = FALSE)
+                             df <- readr::read_csv(
+                               path,
+                               col_types = readr::cols(.default = readr::col_character()),
+                               show_col_types = FALSE
+                             )
                              
                              # map headers to standard names
                              names(df) <- canonical_names(names(df))
@@ -18,8 +22,17 @@ DataModel <- R6::R6Class("DataModel",
                              missing <- setdiff(req, names(df))
                              if (length(missing)) stop("Bundled sample is missing required columns: ", paste(missing, collapse = ", "))
                              
-                             df$date <- as.Date(df$date)
+                             df <- self$canonicalize(df)
                              
+                             self$dataset <- df
+                             self$sources <- c("sample")
+                             rng <- range(df$date, na.rm = TRUE)
+                             self$filters <- list(
+                               date  = rng,
+                               sites = sort(unique(df$site)),
+                               types = sort(unique(df$type))
+                             )
+
                              self$dataset <- df
                              self$sources <- c("sample")
                              rng <- range(df$date, na.rm = TRUE)
@@ -41,9 +54,8 @@ DataModel <- R6::R6Class("DataModel",
                              if ("type" %in% names(out)) out$type <- tools::toTitleCase(squish(out$type))  # Title Case
                              
                              if ("date" %in% names(out)) {
-                               # If not already Date, try ISO-8601 "YYYY-MM-DD". Unparseable -> NA (caught in validate()).
                                if (!inherits(out$date, "Date")) {
-                                 out$date <- as.Date(as.character(out$date))
+                                 out$date <- private$parse_date_flex(out$date)
                                }
                              }
                              
@@ -130,5 +142,25 @@ DataModel <- R6::R6Class("DataModel",
                            timeseries = function(by = c("day","month")) data.frame(),
                            compare = function(by = c("site","type")) data.frame(),
                            summary_table = function() data.frame()
+                         ),
+                         private = list(
+                           parse_date_flex = function(x) {
+                             x_chr <- as.character(x)
+                             pats  <- c(
+                               "%d-%m-%Y", "%d-%m-%y",  # 20-08-2025, 20-08-25
+                               "%Y-%m-%d",              # 2025-08-20
+                               "%m/%d/%Y", "%m/%d/%y",  # 08/20/2025, 08/20/25  (US)
+                               "%d/%m/%Y", "%d/%m/%y"   # 20/08/2025, 20/08/25  (EU)
+                             )
+                             out <- as.Date(rep(NA_character_, length(x_chr)))
+                             for (fmt in pats) {
+                               idx <- is.na(out) & !is.na(x_chr) & nzchar(x_chr)
+                               if (!any(idx)) break
+                               parsed <- suppressWarnings(readr::parse_date(x_chr[idx], format = fmt, locale = readr::locale()))
+                               out[idx] <- as.Date(parsed)
+                             }
+                             out
+                           }
                          )
+                         
 )
