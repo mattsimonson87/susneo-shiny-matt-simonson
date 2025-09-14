@@ -21,13 +21,33 @@ mod_dashboard_ui <- function(id) {
 # Server
 mod_dashboard_server <- function(id, dm) {
   shiny::moduleServer(id, function(input, output, session) {
-    # TODO: render filters from dm$status()
-    # TODO: apply filters via dm$set_filters()
-    # TODO: render KPIs/plots/table from dm$...() methods
-    output$filters <- shiny::renderUI(shiny::helpText("Filters appear after data loads."))
-    output$kpi1 <- shiny::renderUI(shiny::strong("KPI 1")); output$kpi2 <- shiny::renderUI("KPI 2")
-    output$kpi3 <- shiny::renderUI("KPI 3")
-    output$plot_ts <- shiny::renderPlot(plot.new()); output$plot_cmp <- shiny::renderPlot(plot.new())
-    output$tbl <- DT::renderDT(data.frame())
+    model <- shiny::reactive(dm())
+    
+    output$filters <- shiny::renderUI({
+      req(model())
+      st <- model()$status(); ns <- session$ns
+      shiny::tagList(
+        shiny::dateRangeInput(ns("dates"), "Date range",
+                              start = st$date_min, end = st$date_max,
+                              min = st$date_min, max = st$date_max
+        ),
+        shiny::selectizeInput(ns("sites"), "Sites",
+                              choices = st$sites, selected = st$sites, multiple = TRUE
+        ),
+        shiny::selectizeInput(ns("types"), "Types",
+                              choices = st$types, selected = st$types, multiple = TRUE
+        )
+      )
+    })
+    
+    shiny::observeEvent(list(input$dates, input$sites, input$types), {
+      req(model(), input$dates)
+      model()$set_filters(input$dates, input$sites, input$types)
+    }, ignoreInit = TRUE)
+    
+    output$tbl <- DT::renderDT({
+      req(model())
+      model()$filtered_data()
+    }, options = list(pageLength = 10))
   })
 }

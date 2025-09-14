@@ -8,16 +8,23 @@ mod_data_upload_ui <- function(id) {
     ),
     shiny::fileInput(ns("file"), "Upload CSV", accept = ".csv"),
     shiny::actionButton(ns("reset"), "Reset to sample"),
-    shiny::div(id = ns("status"), shiny::em("Status: sample loaded"))
+    shiny::uiOutput(ns("status")) 
   )
 }
 
 # Server
 mod_data_upload_server <- function(id) {
   shiny::moduleServer(id, function(input, output, session) {
-    # TODO: instantiate DataModel; load sample on start
-    # TODO: on file upload -> canonicalize, validate, merge
-    # TODO: on reset -> dm$reset()
-    shiny::reactiveVal(NULL)  # placeholder so app compiles
+    dm <- DataModel$new()  
+    
+    output$status <- shiny::renderUI({
+      st <- dm$status()
+      shiny::HTML(
+        sprintf("Rows: <b>%s</b> | Sites: <b>%s</b> | Dates: <b>%s</b> → <b>%s</b> | Sources: <b>%s</b>",
+                st$n_rows, st$n_sites, st$date_min, st$date_max, st$sources_count)
+      )
+    })
+    
+    shiny::reactive(dm)
   })
 }
