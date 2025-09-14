@@ -24,7 +24,7 @@ mod_dashboard_server <- function(id, dm) {
     model <- shiny::reactive(dm())
     
     output$filters <- shiny::renderUI({
-      req(model())
+      shiny::req(model())
       st <- model()$status(); ns <- session$ns
       shiny::tagList(
         shiny::dateRangeInput(ns("dates"), "Date range",
@@ -41,12 +41,12 @@ mod_dashboard_server <- function(id, dm) {
     })
     
     shiny::observeEvent(list(input$dates, input$sites, input$types), {
-      req(model(), input$dates)
+      shiny::req(model(), input$dates)
       model()$set_filters(input$dates, input$sites, input$types)
     }, ignoreInit = TRUE)
     
     output$tbl <- DT::renderDT({
-      req(model())
+      shiny::req(model())
       model()$filtered_data()
     }, options = list(pageLength = 10))
   })

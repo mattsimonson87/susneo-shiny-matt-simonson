@@ -2,7 +2,7 @@
 app_ui <- function() {
   bslib::page_fillable(
     bslib::page_navbar(
-      title = "SUSNEO — Energy & Emissions",
+      title = "SUSNEO \u2014 Energy & Emissions",
       bslib::nav_panel("Dashboard",
                        bslib::layout_sidebar(
                          sidebar = bslib::sidebar(

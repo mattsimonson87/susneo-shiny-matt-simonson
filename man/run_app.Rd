@@ -6,6 +6,16 @@
 \usage{
 run_app(...)
 }
+\arguments{
+\item{...}{Named options passed through to \code{\link[golem:with_golem_options]{golem::with_golem_options()}}.}
+}
+\value{
+A \link[shiny:shinyApp]{shiny::shinyApp} object (invisibly).
+}
 \description{
-Launch the SUSNEO app
+Starts the Shiny application. Additional arguments are passed to
+\code{\link[golem:with_golem_options]{golem::with_golem_options()}}.
+}
+\examples{
+if (interactive()) susneoShinyMatt::run_app()
 }
