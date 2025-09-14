@@ -9,13 +9,14 @@ The app ships with bundled sample data and merges any uploaded CSVs using an **A
 
 ## Status
 
--   [x] Phase 1: package scaffold, tests dirs, CI placeholder\
--   [x] Phase 2: data contract & merge policy documented\
--   [ ] DataModel (R6) implementation\
--   [ ] Upload module\
--   [ ] Dashboard module (KPIs + charts + table)\
--   [ ] Unit tests\
--   [ ] CI workflow (r-lib/actions)
+-   [x] Phase 1: package scaffold, CI green
+-   [x] Phase 2: data contract & merge policy documented
+-   [x] Vertical slice: load bundled sample, status panel, reactive filters + table
+-   [ ] DataModel: canonicalize() + validate()
+-   [ ] DataModel: merge() (Append + Override) + provenance counts
+-   [ ] Upload module: run validation + merge, reset, notifications
+-   [ ] KPIs (3) + 2 plots
+-   [ ] Unit tests
 
 ------------------------------------------------------------------------
 
@@ -33,7 +34,13 @@ The app ships with bundled sample data and merges any uploaded CSVs using an **A
     susneoShinyMatt::run_app()
     ```
 
-    *Note: if `run_app()` isn’t present yet, you’re on a pre-implementation commit; see Status.*
+------------------------------------------------------------------------
+
+## What works now
+
+-   Bundled sample loads on app start.
+-   Left panel shows a live **Status** (rows, sites, date range, sources).
+-   **Date / Site / Type** filters populate from the data and update a table.
 
 ------------------------------------------------------------------------
 
@@ -62,19 +69,21 @@ pak::pak("mattsimonson87/susneo-shiny-matt-simonson")
 - Negative values in `value` or `carbon_emission_kgco2e`\
 - Missing `id`
 
+**Header synonyms:** Column names are cleaned (lowercase, spaces → `_`) and common synonyms are accepted. Example: `"carbon emission in kgco2e"` is mapped to `carbon_emission_kgco2e`.
+
 ------------------------------------------------------------------------
 
 ## Merge Policy (Append + Override)
 
 The app starts with bundled **sample_data.csv** and maintains a combined, in-memory dataset for the session.
 
--   **Primary key:** `id`\
--   **Within the uploaded file:** if duplicate `id`s exist, the **last occurrence** is kept\
+-   **Primary key:** `id`
+-   **Within the uploaded file:** if duplicate `id`s exist, the **last occurrence** is kept
 -   **Across sources:**
-    -   New `id` → **Append**\
-    -   Existing `id` → **Override** existing row entirely (latest upload wins)\
+    -   New `id` → **Append**
+    -   Existing `id` → **Override** existing row entirely (latest upload wins)
     -   If rows are identical after canonicalization, content is unchanged; **provenance** updates to the latest upload
--   **Filters auto-refresh** to include any new date range, `site`s, or `type`s\
+-   **Filters auto-refresh** to include any new date range, `site`s, or `type`s
 -   **Session-scoped only** (no persistence). **Reset** restores the bundled sample
 
 **Success toast example:**\
@@ -84,8 +93,8 @@ The app starts with bundled **sample_data.csv** and maintains a combined, in-mem
 
 ## App Architecture
 
--   **R6 `DataModel`** — load, canonicalize, validate, merge, set filters, compute KPIs/summaries, manage provenance, report status\
--   **Module `mod_data_upload`** — CSV upload, sample/reset controls, status panel, success/error toasts\
+-   **R6 `DataModel`** — load, canonicalize, validate, merge, set filters, compute KPIs/summaries, manage provenance, report status
+-   **Module `mod_data_upload`** — CSV upload, sample/reset controls, status panel, success/error toasts
 -   **Module `mod_dashboard`** — date/site/type filters, KPI cards, two charts, summary table
 
 ------------------------------------------------------------------------
@@ -93,11 +102,11 @@ The app starts with bundled **sample_data.csv** and maintains a combined, in-mem
 ## KPIs, Visuals, and Table
 
 -   **KPIs** (respect current filters):
-    1)  Total energy consumption (`sum(value)`)\
-    2)  Total emissions (`sum(carbon_emission_kgco2e)`)\
+    1)  Total energy consumption (`sum(value)`)
+    2)  Total emissions (`sum(carbon_emission_kgco2e)`)
     3)  Average daily consumption (mean of daily totals in range)
 -   **Visuals:**
-    -   Time series of consumption (daily or monthly)\
+    -   Time series of consumption (daily or monthly)
     -   Comparison bar chart (by `site` or `type`)
 -   **Table:** summary by `site` and `type` for the current filters
 
@@ -133,6 +142,12 @@ The app starts with bundled **sample_data.csv** and maintains a combined, in-mem
 
 Bundled sample lives at `inst/extdata/sample_data.csv`.\
 On app start, the sample is loaded and immediately visible.
+
+------------------------------------------------------------------------
+
+## Built with
+
+golem · shiny · R6 · readr/dplyr/tidyr · ggplot2 · DT · bslib · testthat · GitHub Actions
 
 ------------------------------------------------------------------------
 
