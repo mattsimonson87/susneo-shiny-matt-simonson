@@ -1,38 +1,46 @@
 # SUSNEO Shiny App — Take-Home (Round 1)
 
-[![R-CMD-check](https://github.com/mattsimonson87/susneo-shiny-matt-simonson/actions/workflows/ci.yml/badge.svg)](https://github.com/mattsimonson87/susneo-shiny-matt-simonson/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.md)
+[![R-CMD-check](https://github.com/<org>/<repo>/actions/workflows/ci.yml/badge.svg)](https://github.com/<org>/<repo>/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-A minimal, production-style Shiny app packaged as **`susneoShinyMatt`**.\
-The app ships with bundled sample data and merges any uploaded CSVs using an **Append + Override** policy (latest upload wins on overlapping IDs).
+A production-style, **golem-packaged** Shiny app: upload CSVs, validate & canonicalize, then **Append + Override** into a session dataset; KPIs and plots update with filters.
 
-------------------------------------------------------------------------
-
-## Status
-
--   [x] Phase 1: package scaffold, CI green
--   [x] Phase 2: data contract & merge policy documented
--   [x] Vertical slice: load bundled sample, status panel, reactive filters + table
--   [ ] DataModel: canonicalize() + validate()
--   [ ] DataModel: merge() (Append + Override) + provenance counts
--   [ ] Upload module: run validation + merge, reset, notifications
--   [ ] KPIs (3) + 2 plots
--   [ ] Unit tests
 
 ------------------------------------------------------------------------
 
-## How to run locally
+## Features
+- **Packaged app:** `susneoShinyMatt::run_app()`
+- **Upload + merge:** Append new IDs; override existing IDs (keep last within upload)
+- **Validation & canonicalization:** strict schema, date parsing (incl. Excel 1904), Title Case types, UPPERCASE sites
+- **Reactive dashboard:** Date/Site/Type filters → KPIs, time-series, comparisons, summary table
+- **Provenance:** source counts and status panel
 
-1.  Open the project in RStudio.\
+------------------------------------------------------------------------
 
-2.  Install dependencies as needed.\
+## Status & Roadmap
+- [x] Package scaffold, CI green
+- [x] Data contract & merge policy documented
+- [x] Vertical slice: sample load → status panel → filters + table
+- [x] `DataModel`: `canonicalize()`, `validate()`, `merge()` (Append + Override)
+- [x] KPIs + 2 plots
+- [x] Unit tests (all passing; high coverage on `DataModel`)
+- [X] Exports
+- [ ] Performance profiling on large files
+- [ ] A11y pass and dark mode toggle
 
-3.  Load and run the app:
+------------------------------------------------------------------------
 
-    ``` r
-    # after functions are added
-    devtools::load_all()
-    susneoShinyMatt::run_app()
-    ```
+## Quickstart
+
+```r
+# 1) Install deps
+if (!requireNamespace("remotes", quietly = TRUE)) install.packages("remotes")
+remotes::install_deps(dependencies = TRUE)
+
+# 2) Run the app
+library(susneoShinyMatt)
+susneoShinyMatt::run_app()
+```
 
 ------------------------------------------------------------------------
 
@@ -57,37 +65,40 @@ pak::pak("mattsimonson87/susneo-shiny-matt-simonson")
 
 ## Data Contract
 
-**Required columns (exact names):** - `id` — unique record identifier (character/integer; treated as character) - `site` — facility/site code (character; canonicalized to UPPERCASE) - `date` — observation date (parseable to Date; stored without time) - `type` — energy/waste type (character; canonicalized to Title Case) - `value` — consumption/quantity (numeric, ≥ 0) - `carbon_emission_kgco2e` — emissions (numeric, ≥ 0)
+**Required columns (canonical names):**
+- `id` (unique key; treated as character)
+- `site` (character; canonicalized to UPPERCASE)
+- `date` (Date; multiple formats supported, incl. Excel serials; 1904 fallback)
+- `type` (character; Title Case with ALL-CAPS preserved)
+- `value` (numeric, ≥ 0)
+- `carbon_emission_kgco2e` (numeric, ≥ 0)
 
-**Canonicalization applied before validation/merge:** - Trim whitespace on character fields\
-- `site` → UPPERCASE; `type` → Title Case\
-- Parse `date` to Date\
-- Coerce numeric columns; fail if not coercible
+**Canonicalization (pre-validation):**
+- Trim/squish whitespace on character fields
+- `site` → UPPERCASE; `type` → Title Case (preserve ALL-CAPS tokens)
+- Parse `date` to Date; coerce numerics (fail if not coercible)
 
-**Validation failures (upload is rejected with a clear message):** - Missing any required column(s)\
-- Unparseable `date` values\
-- Negative values in `value` or `carbon_emission_kgco2e`\
+**Validation (reject upload with message)**
+- Missing required columns
+- Unparseable dates
+- Negative numeric values
 - Missing `id`
 
-**Header synonyms:** Column names are cleaned (lowercase, spaces → `_`) and common synonyms are accepted. Example: `"carbon emission in kgco2e"` is mapped to `carbon_emission_kgco2e`.
+**Header synonyms:** human-readable headers map to canonical names (e.g., `"carbon emission in kgco2e"` → `carbon_emission_kgco2e`).
 
 ------------------------------------------------------------------------
 
 ## Merge Policy (Append + Override)
 
-The app starts with bundled **sample_data.csv** and maintains a combined, in-memory dataset for the session.
+- **Primary key:** `id`
+- **Within an upload:** if duplicate `id`s exist, keep the **last** occurrence
+- **Across sources:**
+  - New `id` → **Append**
+  - Existing `id` → **Override** the row (latest upload wins)
+- **Provenance:** source labels counted for status/audit
+- **Filters:** auto-refresh to reflect new sites/types/date ranges
+- **Scope:** session-only; **Reset** restores bundled sample
 
--   **Primary key:** `id`
--   **Within the uploaded file:** if duplicate `id`s exist, the **last occurrence** is kept
--   **Across sources:**
-    -   New `id` → **Append**
-    -   Existing `id` → **Override** existing row entirely (latest upload wins)
-    -   If rows are identical after canonicalization, content is unchanged; **provenance** updates to the latest upload
--   **Filters auto-refresh** to include any new date range, `site`s, or `type`s
--   **Session-scoped only** (no persistence). **Reset** restores the bundled sample
-
-**Success toast example:**\
-“Upload successful — Appended: 1,245 \| Replaced: 37 \| Sites: +2 \| Types: +1”
 
 ------------------------------------------------------------------------
 
@@ -99,16 +110,18 @@ The app starts with bundled **sample_data.csv** and maintains a combined, in-mem
 
 ------------------------------------------------------------------------
 
-## KPIs, Visuals, and Table
+## KPIs & Visuals
 
--   **KPIs** (respect current filters):
-    1)  Total energy consumption (`sum(value)`)
-    2)  Total emissions (`sum(carbon_emission_kgco2e)`)
-    3)  Average daily consumption (mean of daily totals in range)
--   **Visuals:**
-    -   Time series of consumption (daily or monthly)
-    -   Comparison bar chart (by `site` or `type`)
--   **Table:** summary by `site` and `type` for the current filters
+- **KPIs** (respect current filters)
+  1) Total consumption: `sum(value)`
+  2) Total emissions: `sum(carbon_emission_kgco2e)`
+  3) Average daily consumption: mean of daily totals in range
+
+- **Visuals**
+  - Time series (daily/monthly)
+  - Comparison bar chart (by `site` or `type`)
+- **Table**: summary by `site` and `type` for current filters
+
 
 ------------------------------------------------------------------------
 
@@ -123,8 +136,33 @@ The app starts with bundled **sample_data.csv** and maintains a combined, in-mem
 
 ## Testing & CI
 
--   **Unit tests (testthat):**\
-    validation errors; merge behavior (append/override/identical); filters and summaries after merges\
+**Status:** 194 unit tests passing. Coverage: **41.89% overall**, **90.79%** for the core `DataModel`.
+
+### What’s covered
+- **Filters & KPIs:** date/site/type filtering; KPI calculations with/without filters; daily/monthly aggregations
+- **Merge policy:** append vs. override; duplicate IDs (keep last within upload); provenance counts; filter resync after replace
+- **Canonicalization & validation:** date parsing (incl. Excel **1904** fallback); whitespace/format cleanup; numeric coercions; required-column checks; duplicate detection; `tools::toTitleCase` preserves ALL-CAPS
+
+### Test suite layout
+
+-   `tests/testthat/test-filters_and_summary.R`
+-   `tests/testthat/test-merge.R`
+-   `tests/testthat/test-validation.R`
+
+### Run tests locally
+
+``` r
+# All tests
+devtools::test()
+
+# A specific file
+testthat::test_file("tests/testthat/test-filters_and_summary.R")
+
+# Coverage (optional)
+install.packages("covr")
+covr::package_coverage()
+```
+
 -   **CI (GitHub Actions):** r-lib workflow to install deps, run tests, and `R CMD check`
 
 ------------------------------------------------------------------------
@@ -145,9 +183,10 @@ On app start, the sample is loaded and immediately visible.
 
 ------------------------------------------------------------------------
 
-## Built with
+## Built With
 
-golem · shiny · R6 · readr/dplyr/tidyr · ggplot2 · DT · bslib · testthat · GitHub Actions
+golem · shiny · bslib · plotly · R6 · dplyr · tidyr · readr · readxl · lubridate · stringr · DT · testthat · GitHub Actions
+
 
 ------------------------------------------------------------------------
 
@@ -156,16 +195,18 @@ golem · shiny · R6 · readr/dplyr/tidyr · ggplot2 · DT · bslib · testthat 
 ```         
 .
 ├─ DESCRIPTION
-├─ LICENSE / LICENSE.md
+├─ LICENSE
 ├─ README.md
 ├─ R/
+│  ├─ app_server.R
+│  ├─ app_ui.R
 │  ├─ class_data_model.R
 │  ├─ mod_dashboard.R
 │  ├─ mod_data_upload.R
-│  ├─ utils_format.R
+│  ├─ run_app.R
+│  ├─ susneoShinyMatt-package.R
 │  └─ utils_validation.R
 ├─ inst/
-│  ├─ app/www/
 │  └─ extdata/sample_data.csv
 ├─ tests/
 │  └─ testthat/
@@ -174,4 +215,5 @@ golem · shiny · R6 · readr/dplyr/tidyr · ggplot2 · DT · bslib · testthat 
 │     ├─ test-filters_and_summary.R
 │     └─ testthat.R
 └─ .github/workflows/ci.yml
+
 ```
