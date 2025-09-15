@@ -11,8 +11,20 @@ mod_dashboard_ui <- function(id) {
                                shiny::uiOutput(ns("kpi3")),
                                shiny::uiOutput(ns("kpi4"))
                     ),
-                    plotly::plotlyOutput(ns("plot_ts")),
-                    plotly::plotlyOutput(ns("plot_cmp")),
+                    shiny::tags$p(id = ns("ts_desc"), class = "sr-only",
+                                  "Time series of daily consumption for the selected filters."),
+                    shiny::div(
+                      role = "img",
+                      `aria-describedby` = ns("ts_desc"),
+                      plotly::plotlyOutput(ns("plot_ts"))
+                    ),
+                    shiny::tags$p(id = ns("cmp_desc"), class = "sr-only",
+                                  "Bar chart comparing total consumption by site or type for the selected filters."),
+                    shiny::div(
+                      role = "img",
+                      `aria-describedby` = ns("cmp_desc"),
+                      plotly::plotlyOutput(ns("plot_cmp"))
+                    ),
                     shiny::div(
                       style = "display:flex; justify-content:flex-end; margin: 6px 0;",
                       shiny::downloadButton(ns("download_csv"), "Download filtered CSV")
@@ -83,7 +95,16 @@ mod_dashboard_server <- function(id, dm) {
         }
       }
       
-      DT::datatable(df, rownames = FALSE, options = list(pageLength = 10, columnDefs = columnDefs))
+      DT::datatable(
+        df, 
+        rownames = FALSE, 
+        options = list(pageLength = 20, columnDefs = columnDefs),
+        extensions = "KeyTable",
+        caption = shiny::tags$caption(
+          style = "caption-side: top; text-align:left;",
+          "Summary table for current filters."
+        )
+        )
     })
     
     output$download_csv <- shiny::downloadHandler(

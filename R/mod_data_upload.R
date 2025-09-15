@@ -25,7 +25,12 @@ mod_data_upload_ui <- function(id) {
     # Reset and status
     shiny::actionButton(ns("reset"), "Reset to sample"),
     shiny::hr(),
-    shiny::uiOutput(ns("status"))
+    shiny::uiOutput(
+      ns("status"),
+      container = function(...) {
+        shiny::div(role = "status", `aria-live` = "polite", ...)
+      }
+    )
   )
 }
 

@@ -18,20 +18,46 @@ app_ui <- function() {
     .btn, .form-select, .form-control { border-radius: 10px; }
   ")
   
-  bslib::page_fillable(
-    bslib::page_navbar(
-      title = "SUSNEO \u2014 Energy & Emissions",
-      theme = theme,
-      bslib::nav_panel(
-        "Dashboard",
-        bslib::layout_sidebar(
-          sidebar = bslib::sidebar(
-            width = 360,          # <- make it wider (try 360–420)
-            open  = "desktop",    # <- keep it open on desktop (optional)
-            shiny::h4("Filters & Upload"),
-            mod_data_upload_ui("upload")
-          ),
-          mod_dashboard_ui("dash")
+  shiny::tagList(
+    # --- a11y: styles for the skip link + focus rings ---
+    shiny::tags$head(
+      shiny::tags$style(shiny::HTML("
+        .skip-link { position:absolute; left:-9999px; }
+        .skip-link:focus { left: 8px; top: 8px; z-index: 10000; background: #fff;
+                           padding: .5rem .75rem; border-radius: .5rem; border: 2px solid #0d6efd; }
+        :focus { outline: 2px solid #0d6efd; outline-offset: 2px; }
+        .sr-only { position:absolute!important; width:1px; height:1px; padding:0; margin:-1px; 
+        overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
+        }
+        .dataTable td.focus,
+        table.dataTable tbody td.focus {
+          outline: 2px solid #0d6efd !important;
+          outline-offset: -2px;
+            }
+      "))
+    ),
+    
+    bslib::page_fillable(
+      bslib::page_navbar(
+        # Put the skip link first in the title so it’s first in tab order
+        title = shiny::tagList(
+          shiny::tags$a(href = "#main", class = "skip-link", tabindex = "0", "Skip to content"),
+          "SUSNEO - Energy & Emissions"
+        ),
+        theme = theme,
+        bslib::nav_panel(
+          "Dashboard",
+          bslib::layout_sidebar(
+            sidebar = bslib::sidebar(
+              width = 360, open = "desktop",
+              shiny::h4("Filters & Upload"),
+              mod_data_upload_ui("upload")
+            ),
+            # Real <main> landmark = skip target
+            shiny::tags$main(id = "main", role = "main", tabindex = "-1",
+                             mod_dashboard_ui("dash")
+            )
+          )
         )
       )
     )

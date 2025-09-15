@@ -3,7 +3,7 @@
 #'
 #' @keywords internal
 #' @importFrom rlang .data
-#' @importFrom shiny req validate need
+#' @importFrom shiny req validate need tagList
 #' @importFrom plotly plot_ly layout renderPlotly plotlyOutput
 #' @importFrom dplyr filter mutate group_by summarise distinct
 #' @importFrom tidyr pivot_wider
