@@ -49,7 +49,10 @@ DataModel <- R6::R6Class("DataModel",
                              # helper: trim + collapse internal spaces
                              squish <- function(x) gsub("\\s+", " ", trimws(as.character(x)))
                              
-                             if ("id"   %in% names(out)) out$id   <- squish(out$id)
+                             if ("id" %in% names(out)) {
+                               out$id <- squish(out$id)
+                               out$id <- sub("^([0-9]+)\\.0+$", "\\1", out$id)
+                             }
                              if ("site" %in% names(out)) out$site <- toupper(squish(out$site))             # UPPERCASE
                              if ("type" %in% names(out)) out$type <- tools::toTitleCase(squish(out$type))  # Title Case
                              
@@ -200,21 +203,55 @@ DataModel <- R6::R6Class("DataModel",
                          private = list(
                            parse_date_flex = function(x) {
                              x_chr <- as.character(x)
-                             pats  <- c(
-                               "%d-%m-%Y", "%d-%m-%y",  # 20-08-2025, 20-08-25
-                               "%Y-%m-%d",              # 2025-08-20
-                               "%m/%d/%Y", "%m/%d/%y",  # 08/20/2025, 08/20/25  (US)
-                               "%d/%m/%Y", "%d/%m/%y"   # 20/08/2025, 20/08/25  (EU)
+                             out   <- as.Date(rep(NA_character_, length(x_chr)))
+                             
+                             # Excel serials first
+                             num     <- suppressWarnings(as.numeric(x_chr))
+                             idx_num <- !is.na(num) & grepl("^\\s*\\d+(\\.0+)?\\s*$", x_chr)
+                             if (any(idx_num)) {
+                               idx_pos <- which(idx_num)
+                               
+                               # Excel 1900 date system 
+                               d <- as.Date(num[idx_pos], origin = "1899-12-30")
+                               plausible <- d >= as.Date("1900-01-01") & d <= as.Date("2100-12-31")
+                               out[idx_pos[plausible]] <- d[plausible]
+                               
+                               # Fallback: Excel 1904 system 
+                               bad_within <- which(!plausible)
+                               if (length(bad_within)) {
+                                 i_bad <- idx_pos[bad_within]
+                                 d2 <- as.Date(num[i_bad], origin = "1904-01-01")
+                                 plausible2 <- d2 >= as.Date("1904-01-01") & d2 <= as.Date("2100-12-31")
+                                 out[i_bad[plausible2]] <- d2[plausible2]
+                               }
+                             }
+                             
+                             # Try common textual formats (DMY first to match "20-08-2025")
+                             pats <- c(
+                               "%d-%m-%Y", "%d-%m-%y",
+                               "%Y-%m-%d",
+                               "%m/%d/%Y", "%m/%d/%y",
+                               "%d/%m/%Y", "%d/%m/%y",
+                               "%d-%b-%Y", "%b %d, %Y", "%d %b %Y",
+                               "%Y/%m/%d"
                              )
-                             out <- as.Date(rep(NA_character_, length(x_chr)))
                              for (fmt in pats) {
                                idx <- is.na(out) & !is.na(x_chr) & nzchar(x_chr)
                                if (!any(idx)) break
                                parsed <- suppressWarnings(readr::parse_date(x_chr[idx], format = fmt, locale = readr::locale()))
                                out[idx] <- as.Date(parsed)
                              }
+                             
+                             # Last resort: parse datetime, then drop time
+                             idx <- is.na(out) & !is.na(x_chr) & nzchar(x_chr)
+                             if (any(idx)) {
+                               parsed_dt <- suppressWarnings(readr::parse_datetime(x_chr[idx], locale = readr::locale()))
+                               out[idx] <- as.Date(parsed_dt)
+                             }
+                             
                              out
                            }
+                           
                          )
                          
 )

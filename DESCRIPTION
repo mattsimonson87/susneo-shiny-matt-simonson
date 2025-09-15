@@ -23,5 +23,6 @@ Imports:
     golem,
     R6,
     readr,
+    readxl,
     shiny,
     tidyr

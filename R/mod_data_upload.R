@@ -5,20 +5,20 @@ mod_data_upload_ui <- function(id) {
     # Source toggle
     shiny::radioButtons(
       ns("source"), label = "Data source",
-      choices = c("Use bundled sample", "Upload CSV"),
+      choices = c("Use bundled sample", "Upload File"),
       selected = "Use bundled sample", inline = TRUE
     ),
     
     # File selector shown only when Upload CSV is chosen
     shiny::conditionalPanel(
-      condition = sprintf("input['%s'] == 'Upload CSV'", ns("source")),
+      condition = sprintf("input['%s'] == 'Upload File'", ns("source")),
       shiny::fileInput(
-        ns("upload_csv"), "Choose CSV",
-        accept = ".csv",
+        ns("upload_csv"), "Choose CSV or Excel",
+        accept = c(".csv", ".xlsx"),
         buttonLabel = "Browse...",
         placeholder = "No file selected"
       ),
-      shiny::helpText("Required columns: id, site, date, type, value, carbon_emission_kgco2e")
+      shiny::helpText("Required columns (CSV or XLSX): id, site, date, type, value, carbon_emission_kgco2e")
     ),
     
     # Reset and status
@@ -31,6 +31,23 @@ mod_data_upload_ui <- function(id) {
 # Server
 mod_data_upload_server <- function(id) {
   shiny::moduleServer(id, function(input, output, session) {
+    
+    # Helper Function for reading from xlsx or csv
+    read_upload_as_char <- function(datapath, name) {
+      if (is.null(name) || !nzchar(name)) name <- basename(datapath)
+      ext <- tolower(tools::file_ext(name))
+      if (ext == "csv") {
+        readr::read_csv(
+          datapath,
+          col_types = readr::cols(.default = readr::col_character()),
+          show_col_types = FALSE, progress = FALSE
+        )
+      } else if (ext %in% c("xlsx", "xls")) {
+        as.data.frame(readxl::read_excel(datapath, sheet = 1, col_types = "text"))
+      } else {
+        stop("Unsupported file type: .", ext)
+      }
+    }
     
     # Hold the model as a reactiveVal
     rv_model <- shiny::reactiveVal(DataModel$new())
@@ -69,13 +86,9 @@ mod_data_upload_server <- function(id) {
       
       # read as character to handle mixed formats
       df <- tryCatch(
-        readr::read_csv(
-          input$upload_csv$datapath,
-          col_types = readr::cols(.default = readr::col_character()),
-          show_col_types = FALSE, progress = FALSE
-        ),
+        read_upload_as_char(input$upload_csv$datapath, input$upload_csv$name),
         error = function(e) {
-          shiny::showNotification(paste("Failed to read CSV:", e$message), type = "error", duration = NULL)
+          shiny::showNotification(paste("Failed to read file:", e$message), type = "error", duration = NULL)
           return(NULL)
         }
       )
