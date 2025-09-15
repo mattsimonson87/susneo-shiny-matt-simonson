@@ -2,3 +2,9 @@
 ^.*\.Rproj$
 ^\.Rproj\.user$
 ^\.github$
+^bench/
+^prof/
+^.*\.Rprof$
+^profvis-.*\.html$
+^bench$
+^prof$

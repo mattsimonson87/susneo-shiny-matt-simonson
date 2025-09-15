@@ -1,10 +1,32 @@
-#' DataModel: ingestion, validation, merge, filters, KPIs
-#' @noRd
+#' SUSNEO data model
+#'
+#' Core R6 class encapsulating canonicalization, validation, filtering,
+#' KPI calculations, and the merge policy (Append + Override).
+#'
+#' @docType class
+#' @format An [R6::R6Class] generator.
+#'
+#' @field dataset Current tibble of records.
+#' @field sources Data frame of provenance rows (tag, time, appended, replaced, new_sites, new_types).
+#' @field filters List with `date` (length-2 Date), `sites` (character), `types` (character).
+#'
+#' @section Methods:
+#' \itemize{
+#'   \item \code{initialize()}, \code{set_filters()}, \code{filtered_data()}
+#'   \item \code{canonicalize()}, \code{validate()}, \code{merge()}
+#'   \item \code{status()}, KPI methods, \code{timeseries()}, \code{compare()}, \code{summary_table()}
+#' }
+#' @export
 DataModel <- R6::R6Class("DataModel",
                          public = list(
                            dataset = NULL,
                            sources = NULL,
                            filters = NULL,
+                           #' @description Set active filters (date range, sites, types).
+                           #' @param dates length-2 Date vector (min, max) or NULL.
+                           #' @param sites character vector of site codes or NULL.
+                           #' @param types character vector of types or NULL.
+                           #' @return Invisibly returns `self`.
                            set_filters = function(dates = NULL, sites = NULL, types = NULL) {
                              if (!is.null(dates) && length(dates) == 2) {
                                self$filters$date <- dates
@@ -17,7 +39,8 @@ DataModel <- R6::R6Class("DataModel",
                              }
                              invisible(self)
                            },
-                           
+                           #' @description Return data after applying active filters.
+                           #' @return A data.frame/tibble of filtered rows.
                            filtered_data = function() {
                              if (is.null(self$dataset)) {
                                return(data.frame())
@@ -46,6 +69,8 @@ DataModel <- R6::R6Class("DataModel",
                              
                              df
                            },
+                           #' @description Initialize model and load bundled sample dataset.
+                           #' @return A new `DataModel` object.
                            initialize = function() {
                              path <- system.file("extdata", "sample_data.csv", package = "susneoShinyMatt")
                              if (!nzchar(path) || !file.exists(path)) stop("Bundled sample not found at: ", path)
@@ -82,32 +107,67 @@ DataModel <- R6::R6Class("DataModel",
                                types = sort(unique(df$type))
                              )
                            },
+                           #' @description Canonicalize input data (names, whitespace, case, types, dates).
+                           #' @param df A data.frame-like object to canonicalize.
+                           #' @return Canonicalized data.frame with required columns.
                            canonicalize = function(df) {
                              stopifnot(is.data.frame(df))
                              out <- df
                              names(out) <- canonical_names(names(out))
-                             # helper: trim + collapse internal spaces
-                             squish <- function(x) gsub("\\s+", " ", trimws(as.character(x)))
                              
+                             # fast + NA-safe squish
+                             squish_chr <- function(x) {
+                               is_na <- is.na(x)
+                               x_chr <- if (is.character(x)) x else as.character(x)
+                               x_chr[!is_na] <- stringr::str_squish(x_chr[!is_na])
+                               x_chr[is_na] <- NA_character_
+                               x_chr
+                             }
+                             
+                             # ID: trim/squish + strip trailing ".0" from numeric-like IDs
                              if ("id" %in% names(out)) {
-                               out$id <- squish(out$id)
+                               out$id <- squish_chr(out$id)
                                out$id <- sub("^([0-9]+)\\.0+$", "\\1", out$id)
                              }
-                             if ("site" %in% names(out)) out$site <- toupper(squish(out$site))             # UPPERCASE
-                             if ("type" %in% names(out)) out$type <- tools::toTitleCase(squish(out$type))  # Title Case
                              
+                             # SITE: uppercase by unique, then map back (avoids N * string ops)
+                             if ("site" %in% names(out)) {
+                               s_raw <- out$site
+                               u <- unique(s_raw)
+                               u_out <- toupper(squish_chr(u))
+                               map <- stats::setNames(u_out, as.character(u))
+                               out$site <- unname(map[as.character(s_raw)])
+                             }
+                             
+                             # TYPE: preserve ALL-CAPS; otherwise Title Case — by unique, then map back
+                             if ("type" %in% names(out)) {
+                               t_raw <- out$type
+                               u <- unique(t_raw)
+                               u_sq <- squish_chr(u)
+                               keep_upper <- !is.na(u_sq) & (u_sq == toupper(u_sq))
+                               u_out <- u_sq
+                               u_out[!keep_upper] <- stringr::str_to_title(u_out[!keep_upper])
+                               map <- stats::setNames(u_out, as.character(u))
+                               out$type <- unname(map[as.character(t_raw)])
+                             }
+                             
+                             # DATE: parse only if not already Date
                              if ("date" %in% names(out)) {
                                if (!inherits(out$date, "Date")) {
                                  out$date <- private$parse_date_flex(out$date)
                                }
                              }
                              
+                             # NUMERICS: coerce quietly
                              for (nm in c("value", "carbon_emission_kgco2e")) {
                                if (nm %in% names(out)) out[[nm]] <- suppressWarnings(as.numeric(out[[nm]]))
                              }
                              
                              out
                            },
+                           #' @description Validate a canonicalized dataset against the data contract.
+                           #' @param df A data.frame to validate (usually after `canonicalize()`).
+                           #' @return `TRUE` if valid; otherwise a list with element `errors` (character).
                            validate = function(df) {
                              req_cols <- c("id","site","date","type","value","carbon_emission_kgco2e")
                              errs <- character()
@@ -146,6 +206,10 @@ DataModel <- R6::R6Class("DataModel",
                              
                              if (length(errs) == 0) TRUE else list(errors = errs)
                            },
+                           #' @description Merge an upload per policy (Append + Override; keep last within upload).
+                           #' @param df Canonicalized data.frame to merge.
+                           #' @param source_tag Optional tag/label for provenance.
+                           #' @return Named list: `appended`, `replaced`, `new_sites`, `new_types` (integers).
                            merge = function(df, source_tag = NULL) {
                              stopifnot(is.data.frame(df))
                              
@@ -230,6 +294,8 @@ DataModel <- R6::R6Class("DataModel",
                                new_types = as.integer(length(new_types))
                              )
                            },
+                           #' @description Summary of current dataset, filters, and provenance.
+                           #' @return List with counts, date range, sites/types, and last source/time.
                            status = function() {
                              if (is.null(self$dataset)) {
                                return(list(
@@ -266,16 +332,29 @@ DataModel <- R6::R6Class("DataModel",
                                last_time = last_time
                              )
                            },
+                           #' @description Reset dataset and filters (keeps sources unless clear_sources=TRUE).
+                           #' @param clear_sources logical; if TRUE also clears provenance history.
+                           #' @return Invisibly returns `self`.
+                           reset = function(clear_sources = FALSE) {
+                             self$dataset <- NULL
+                             self$filters <- list(date = NULL, sites = NULL, types = NULL)
+                             if (isTRUE(clear_sources)) self$sources <- NULL
+                             invisible(self)
+                           },
+                           #' @description Total consumption under current filters.
+                           #' @return Numeric scalar.
                            kpi_total_consumption = function() {
                              df <- self$filtered_data()
                              sum(df$value, na.rm = TRUE)
                            },
-                           
+                           #' @description Total emissions under current filters.
+                           #' @return Numeric scalar.
                            kpi_total_emissions = function() {
                              df <- self$filtered_data()
                              sum(df$carbon_emission_kgco2e, na.rm = TRUE)
                            },
-                           
+                           #' @description Average daily consumption over the filtered date range.
+                           #' @return Numeric scalar.
                            kpi_avg_daily_consumption = function() {
                              df <- self$filtered_data()
                              if (!nrow(df)) return(0)
@@ -284,6 +363,8 @@ DataModel <- R6::R6Class("DataModel",
                              if (is.na(days) || days <= 0) return(0)
                              sum(df$value, na.rm = TRUE) / days
                            },
+                           #' @description Energy intensity = total consumption / distinct site-days.
+                           #' @return Numeric scalar.
                            kpi_energy_intensity = function() {
                              df <- self$filtered_data()
                              if (!nrow(df)) return(0)
@@ -291,6 +372,9 @@ DataModel <- R6::R6Class("DataModel",
                              if (sd <= 0) return(0)
                              sum(df$value, na.rm = TRUE) / sd
                            },
+                           #' @description Aggregated time series for plots.
+                           #' @param by One of `"day"` or `"month"`.
+                           #' @return Data.frame with columns `period`, `value`, `emissions`.
                            timeseries = function(by = c("day","month")) {
                              by <- match.arg(by)
                              df <- self$filtered_data()
@@ -304,7 +388,9 @@ DataModel <- R6::R6Class("DataModel",
                              ) |>
                                dplyr::arrange(period)
                            },
-                           
+                           #' @description Aggregations for comparison chart.
+                           #' @param by One of `"site"` or `"type"`.
+                           #' @return Data.frame grouped by `by` with totals.
                            compare = function(by = c("site","type")) {
                              by <- match.arg(by)
                              df <- self$filtered_data()
@@ -317,7 +403,8 @@ DataModel <- R6::R6Class("DataModel",
                              )
                              out[order(out$value, decreasing = TRUE), , drop = FALSE]
                            },
-                           
+                           #' @description Summary table backing the dashboard (respects filters).
+                           #' @return Data.frame of currently filtered rows.
                            summary_table = function() {
                              self$filtered_data()
                            }
