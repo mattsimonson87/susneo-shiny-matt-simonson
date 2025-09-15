@@ -36,7 +36,7 @@ if (file.exists("bench/make_big_sample.R")) {
 }
 
 # ---- parameters ----
-n <- as.integer(Sys.getenv("BENCH_N", "200000"))  # override with: Sys.setenv(BENCH_N="500000")
+n <- as.integer(Sys.getenv("BENCH_N", "500000"))  
 set.seed(42)
 dm <- susneoShinyMatt:::DataModel$new()
 dat <- make_big_sample(n)
@@ -73,3 +73,24 @@ print(res)
 out <- sprintf("prof/bench-%s-%s.csv", format(n, big.mark = ""), format(Sys.time(), "%Y%m%d-%H%M%S"))
 readr::write_csv(as.data.frame(res), out)
 message("Saved: ", out)
+
+# --- write a human-readable summary ---
+dir.create("docs", showWarnings = FALSE)
+summ <- data.frame(
+  expression = as.character(res$expression),
+  median = as.character(res$median),
+  mem_alloc = as.character(res$`mem_alloc`)
+)
+lines <- c(
+  "# Benchmark snapshot",
+  sprintf("- Date: %s", format(Sys.time(), "%Y-%m-%d %H:%M:%S")),
+  sprintf("- Rows: %s", format(n, big.mark = ",")),
+  sprintf("- R: %s on %s", getRversion(), R.version$os),
+  "",
+  "| expression | median | mem_alloc |",
+  "|---|---:|---:|",
+  sprintf("| %s | %s | %s |", summ$expression, summ$median, summ$mem_alloc)
+)
+writeLines(lines, "docs/bench-summary.md")
+message("Summary written: docs/bench-summary.md (commit this file)")
+

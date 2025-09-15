@@ -44,14 +44,6 @@ susneoShinyMatt::run_app()
 
 ------------------------------------------------------------------------
 
-## What works now
-
--   Bundled sample loads on app start.
--   Left panel shows a live **Status** (rows, sites, date range, sources).
--   **Date / Site / Type** filters populate from the data and update a table.
-
-------------------------------------------------------------------------
-
 ## Installation (developer)
 
 Install directly from GitHub once the app exports `run_app()`:
@@ -189,6 +181,19 @@ golem · shiny · bslib · plotly · R6 · dplyr · tidyr · readr · readxl · 
 
 
 ------------------------------------------------------------------------
+
+## Performance profiling
+
+Scripts live in `bench/` (excluded from the package tarball but tracked in git).
+
+Run locally:
+```r
+source("bench/bench_datamodel.R")       # writes CSV to prof/ and docs/bench-summary.md
+source("bench/prof_datamodel_merge.R")  # saves profvis HTML flame graph to prof/
+```
+
+------------------------------------------------------------------------
+
 
 ## Repository structure
 
