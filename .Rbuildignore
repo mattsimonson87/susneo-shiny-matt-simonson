@@ -8,3 +8,4 @@
 ^profvis-.*\.html$
 ^bench$
 ^prof$
+^docs$

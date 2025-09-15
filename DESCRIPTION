@@ -23,7 +23,6 @@ Imports:
     dplyr,
     tidyr,
     readr,
-    readxl,
     plotly,
     lubridate,
     stringr,

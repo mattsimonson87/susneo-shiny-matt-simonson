@@ -8,8 +8,7 @@
 #' @importFrom dplyr filter mutate group_by summarise distinct
 #' @importFrom tidyr pivot_wider
 #' @importFrom readr read_csv
-#' @importFrom readxl read_excel
-#' @importFrom lubridate ymd as_date
+#' @importFrom lubridate ymd mdy dmy as_date
 #' @importFrom stringr str_trim str_squish str_to_upper
 #' @importFrom R6 R6Class
 "_PACKAGE"

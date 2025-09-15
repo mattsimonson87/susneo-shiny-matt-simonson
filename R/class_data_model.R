@@ -153,9 +153,7 @@ DataModel <- R6::R6Class("DataModel",
                              
                              # DATE: parse only if not already Date
                              if ("date" %in% names(out)) {
-                               if (!inherits(out$date, "Date")) {
-                                 out$date <- private$parse_date_flex(out$date)
-                               }
+                               out$date <- private$parse_date_flex(out$date)
                              }
                              
                              # NUMERICS: coerce quietly
@@ -412,50 +410,64 @@ DataModel <- R6::R6Class("DataModel",
                          private = list(
                            parse_date_flex = function(x) {
                              x_chr <- as.character(x)
-                             out   <- as.Date(rep(NA_character_, length(x_chr)))
+                             n <- length(x_chr)
+                             out <- as.Date(rep(NA_real_, n), origin = "1970-01-01")
                              
-                             # Excel serials first
-                             num     <- suppressWarnings(as.numeric(x_chr))
+                             # 1) Excel numeric serials (1900 system, then 1904 fallback)
+                             num <- suppressWarnings(as.numeric(x_chr))
                              idx_num <- !is.na(num) & grepl("^\\s*\\d+(\\.0+)?\\s*$", x_chr)
                              if (any(idx_num)) {
-                               idx_pos <- which(idx_num)
+                               pos <- which(idx_num)
                                
-                               # Excel 1900 date system 
-                               d <- as.Date(num[idx_pos], origin = "1899-12-30")
+                               d <- as.Date(num[pos], origin = "1899-12-30")
                                plausible <- d >= as.Date("1900-01-01") & d <= as.Date("2100-12-31")
-                               out[idx_pos[plausible]] <- d[plausible]
+                               out[pos[plausible]] <- d[plausible]
                                
-                               # Fallback: Excel 1904 system 
-                               bad_within <- which(!plausible)
-                               if (length(bad_within)) {
-                                 i_bad <- idx_pos[bad_within]
-                                 d2 <- as.Date(num[i_bad], origin = "1904-01-01")
+                               left <- pos[!plausible]
+                               if (length(left)) {
+                                 d2 <- as.Date(num[left], origin = "1904-01-01")
                                  plausible2 <- d2 >= as.Date("1904-01-01") & d2 <= as.Date("2100-12-31")
-                                 out[i_bad[plausible2]] <- d2[plausible2]
+                                 out[left[plausible2]] <- d2[plausible2]
                                }
                              }
                              
-                             # Try common textual formats (DMY first to match "20-08-2025")
-                             pats <- c(
-                               "%d-%m-%Y", "%d-%m-%y",
-                               "%Y-%m-%d",
-                               "%m/%d/%Y", "%m/%d/%y",
-                               "%d/%m/%Y", "%d/%m/%y",
-                               "%d-%b-%Y", "%b %d, %Y", "%d %b %Y",
-                               "%Y/%m/%d"
-                             )
-                             for (fmt in pats) {
-                               idx <- is.na(out) & !is.na(x_chr) & nzchar(x_chr)
-                               if (!any(idx)) break
-                               parsed <- suppressWarnings(readr::parse_date(x_chr[idx], format = fmt, locale = readr::locale()))
-                               out[idx] <- as.Date(parsed)
-                             }
-                             
-                             # Last resort: parse datetime, then drop time
-                             idx <- is.na(out) & !is.na(x_chr) & nzchar(x_chr)
-                             if (any(idx)) {
-                               parsed_dt <- suppressWarnings(readr::parse_datetime(x_chr[idx], locale = readr::locale()))
-                               out[idx] <- as.Date(parsed_dt)
+                             # 2) Textual dates
+                             idx_txt <- which(is.na(out) & !is.na(x_chr) & nzchar(x_chr))
+                             if (length(idx_txt)) {
+                               vals <- x_chr[idx_txt]
+                               
+                               # 2a) ISO first
+                               y <- suppressWarnings(lubridate::ymd(vals, quiet = TRUE))
+                               take_y <- !is.na(y)
+                               if (any(take_y)) {
+                                 out[idx_txt[take_y]] <- y[take_y]
+                               }
+                               
+                               # 2b) MDY vs DMY auto-detect for the rest
+                               idx_left <- idx_txt[is.na(out[idx_txt])]
+                               if (length(idx_left)) {
+                                 vals2 <- x_chr[idx_left]
+                                 m <- suppressWarnings(lubridate::mdy(vals2, quiet = TRUE))
+                                 d <- suppressWarnings(lubridate::dmy(vals2, quiet = TRUE))
+                                 
+                                 # choose per-element when only one parses;
+                                 # for ambiguous (both parse), pick the majority overall.
+                                 only_m <- !is.na(m) &  is.na(d)
+                                 only_d <-  is.na(m) & !is.na(d)
+                                 both   <- !is.na(m) & !is.na(d)
+                                 
+                                 out[idx_left[only_m]] <- m[only_m]
+                                 out[idx_left[only_d]] <- d[only_d]
+                                 
+                                 if (any(both)) {
+                                   prefer_mdy <- sum(!is.na(m)) >= sum(!is.na(d))
+                                   if (prefer_mdy) {
+                                     out[idx_left[both]] <- m[both]
+                                   } else {
+                                     out[idx_left[both]] <- d[both]
+                                   }
+                                 }
+                               }
                              }
                              
                              out

@@ -13,12 +13,13 @@ mod_data_upload_ui <- function(id) {
     shiny::conditionalPanel(
       condition = sprintf("input['%s'] == 'Upload File'", ns("source")),
       shiny::fileInput(
-        ns("upload_csv"), "Choose CSV or Excel",
-        accept = c(".csv", ".xlsx"),
+        ns("upload_csv"), "Upload data (CSV only)",
+        accept = c(".csv", "text/csv", "text/comma-separated-values"),
+        width = "100%",
         buttonLabel = "Browse...",
         placeholder = "No file selected"
       ),
-      shiny::helpText("Required columns (CSV or XLSX): id, site, date, type, value, carbon_emission_kgco2e")
+      shiny::helpText("Required columns: id, site, date, type, value, carbon_emission_kgco2e")
     ),
     
     # Reset and status
@@ -32,30 +33,22 @@ mod_data_upload_ui <- function(id) {
 mod_data_upload_server <- function(id) {
   shiny::moduleServer(id, function(input, output, session) {
     
-    # Helper Function for reading from xlsx or csv
-    read_upload_as_char <- function(datapath, name) {
-      if (is.null(name) || !nzchar(name)) name <- basename(datapath)
-      ext <- tolower(tools::file_ext(name))
-      if (ext == "csv") {
-        readr::read_csv(
-          datapath,
-          col_types = readr::cols(.default = readr::col_character()),
-          show_col_types = FALSE, progress = FALSE
-        )
-      } else if (ext %in% c("xlsx", "xls")) {
-        as.data.frame(readxl::read_excel(datapath, sheet = 1, col_types = "text"))
-      } else {
-        stop("Unsupported file type: .", ext)
-      }
-    }
-    
-    # Hold the model as a reactiveVal
-    rv_model <- shiny::reactiveVal(DataModel$new())
-    
-    # A small bump to refresh the status UI
+    # ---- model + small helpers ----
+    rv_model    <- shiny::reactiveVal(DataModel$new())
     status_bump <- shiny::reactiveVal(0)
     
-    # Status panel
+    # Read CSV as character so canonicalize() owns parsing (incl. dates)
+    read_csv_as_char <- function(path) {
+      readr::read_csv(
+        file = path,
+        col_types = readr::cols(.default = readr::col_character()),
+        locale = readr::locale(),
+        show_col_types = FALSE,
+        trim_ws = TRUE
+      )
+    }
+    
+    # ---- status panel ----
     output$status <- shiny::renderUI({
       status_bump()
       st <- rv_model()$status()
@@ -67,44 +60,51 @@ mod_data_upload_server <- function(id) {
       ))
     })
     
-    # Reset: return to bundled sample
+    # ---- reset paths ----
     shiny::observeEvent(input$reset, {
-      rv_model(DataModel$new())
-      status_bump(status_bump() + 1)
+      rv_model(DataModel$new()); status_bump(status_bump() + 1)
       shiny::showNotification("Reset to bundled sample.", type = "message", duration = 3)
     })
-    
-    # Switching radio back to "Use bundled sample" also resets
     shiny::observeEvent(input$source, {
       if (identical(input$source, "Use bundled sample")) {
-        rv_model(DataModel$new())
-        status_bump(status_bump() + 1)
+        rv_model(DataModel$new()); status_bump(status_bump() + 1)
       }
     }, ignoreInit = TRUE)
     
-    # Upload -> canonicalize -> validate -> merge
+    # ---- upload -> canonicalize -> validate -> merge (CSV only) ----
     shiny::observeEvent(input$upload_csv, {
-      shiny::req(input$upload_csv)
+      shiny::req(input$upload_csv$datapath, input$upload_csv$name)
       
-      # read as character to handle mixed formats
+      # Enforce CSV only (accept= in UI is just a hint; this is the hard stop)
+      ext <- tolower(tools::file_ext(input$upload_csv$name))
+      if (ext != "csv") {
+        shiny::showNotification(
+          "Please upload a CSV file (Excel: File -> Save As -> CSV).",
+          type = "error", duration = 8
+        )
+        return(invisible(NULL))  # stop processing non-CSV uploads
+      }
+      
+      # Read CSV as character so canonicalize() controls types (esp. dates)
       df <- tryCatch(
-        read_upload_as_char(input$upload_csv$datapath, input$upload_csv$name),
+        read_csv_as_char(input$upload_csv$datapath),
         error = function(e) {
-          shiny::showNotification(paste("Failed to read file:", e$message), type = "error", duration = NULL)
+          shiny::showNotification(paste("Failed to read CSV:", e$message),
+                                  type = "error", duration = NULL)
           return(NULL)
         }
       )
       shiny::req(df)
       
-      dm <- rv_model()
-      df_c <- dm$canonicalize(df)
+      dm   <- rv_model()
+      df_c <- dm$canonicalize(df)   # reparses/normalizes dates
       v    <- dm$validate(df_c)
       
       if (isTRUE(v)) {
-        src   <- if (!is.null(input$upload_csv$name)) paste0("upload:", input$upload_csv$name) else "upload"
+        src   <- paste0("upload:", input$upload_csv$name)
         stats <- dm$merge(df_c, source_tag = src)
         
-        # IMPORTANT: replace the object to invalidate downstream reactives
+        # reassign to bump reactives downstream
         rv_model(dm$clone(deep = FALSE))
         status_bump(status_bump() + 1)
         
@@ -121,7 +121,7 @@ mod_data_upload_server <- function(id) {
       }
     })
     
-    # Return the reactive model for the dashboard module
+    # ---- expose model to other modules ----
     rv_model
   })
 }

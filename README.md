@@ -24,8 +24,8 @@ A production-style, **golem-packaged** Shiny app: upload CSVs, validate & canoni
 - [x] `DataModel`: `canonicalize()`, `validate()`, `merge()` (Append + Override)
 - [x] KPIs + 2 plots
 - [x] Unit tests (all passing; high coverage on `DataModel`)
-- [X] Exports
-- [ ] Performance profiling on large files
+- [X] Export
+- [X] Performance profiling on large files
 - [ ] A11y pass and dark mode toggle
 
 ------------------------------------------------------------------------
