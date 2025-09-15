@@ -21,7 +21,10 @@ mod_dashboard_ui <- function(id) {
 # Server
 mod_dashboard_server <- function(id, dm) {
   shiny::moduleServer(id, function(input, output, session) {
-    model <- shiny::reactive(dm())
+    
+    # Accept either a reactive or a plain DataModel
+    get_dm <- if (is.function(dm)) dm else function() dm
+    model  <- shiny::reactive(get_dm())
     
     output$filters <- shiny::renderUI({
       shiny::req(model())

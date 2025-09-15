@@ -60,8 +60,10 @@ mod_data_upload_server <- function(id) {
       status_bump()
       st <- rv_model()$status()
       shiny::HTML(sprintf(
-        "Rows: <b>%s</b> | Sites: <b>%s</b> | Dates: <b>%s</b> → <b>%s</b> | Sources: <b>%s</b>",
-        st$n_rows, st$n_sites, st$date_min, st$date_max, st$sources_count
+        "Rows: <b>%s</b> | Sites: <b>%s</b> | Dates: <b>%s</b> -> <b>%s</b> | Sources: <b>%s</b> | Uploads: <b>%s</b> | Last: <b>%s</b> at <b>%s</b>",
+        st$n_rows, st$n_sites, st$date_min, st$date_max, st$sources_count, st$uploads_total,
+        ifelse(is.na(st$last_source), "-", st$last_source),
+        ifelse(is.na(st$last_time), "-", format(st$last_time, "%Y-%m-%d %H:%M"))
       ))
     })
     
@@ -80,7 +82,7 @@ mod_data_upload_server <- function(id) {
       }
     }, ignoreInit = TRUE)
     
-    # Upload → canonicalize → validate → merge
+    # Upload -> canonicalize -> validate -> merge
     shiny::observeEvent(input$upload_csv, {
       shiny::req(input$upload_csv)
       

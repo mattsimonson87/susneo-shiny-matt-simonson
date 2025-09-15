@@ -5,6 +5,47 @@ DataModel <- R6::R6Class("DataModel",
                            dataset = NULL,
                            sources = NULL,
                            filters = NULL,
+                           set_filters = function(dates = NULL, sites = NULL, types = NULL) {
+                             if (!is.null(dates) && length(dates) == 2) {
+                               self$filters$date <- dates
+                             }
+                             if (!is.null(sites)) {
+                               self$filters$sites <- sites
+                             }
+                             if (!is.null(types)) {
+                               self$filters$types <- types
+                             }
+                             invisible(self)
+                           },
+                           
+                           filtered_data = function() {
+                             if (is.null(self$dataset)) {
+                               return(data.frame())
+                             }
+                             
+                             df <- self$dataset
+                             
+                             # Apply date filter
+                             if (!is.null(self$filters$date) && length(self$filters$date) == 2) {
+                               date_min <- self$filters$date[1]
+                               date_max <- self$filters$date[2]
+                               if (!is.na(date_min) && !is.na(date_max)) {
+                                 df <- df[!is.na(df$date) & df$date >= date_min & df$date <= date_max, , drop = FALSE]
+                               }
+                             }
+                             
+                             # Apply site filter
+                             if (!is.null(self$filters$sites) && length(self$filters$sites) > 0) {
+                               df <- df[df$site %in% self$filters$sites, , drop = FALSE]
+                             }
+                             
+                             # Apply type filter
+                             if (!is.null(self$filters$types) && length(self$filters$types) > 0) {
+                               df <- df[df$type %in% self$filters$types, , drop = FALSE]
+                             }
+                             
+                             df
+                           },
                            initialize = function() {
                              path <- system.file("extdata", "sample_data.csv", package = "susneoShinyMatt")
                              if (!nzchar(path) || !file.exists(path)) stop("Bundled sample not found at: ", path)
@@ -25,16 +66,15 @@ DataModel <- R6::R6Class("DataModel",
                              df <- self$canonicalize(df)
                              
                              self$dataset <- df
-                             self$sources <- c("sample")
-                             rng <- range(df$date, na.rm = TRUE)
-                             self$filters <- list(
-                               date  = rng,
-                               sites = sort(unique(df$site)),
-                               types = sort(unique(df$type))
+                             self$sources <- data.frame(
+                               tag       = "sample",
+                               time      = Sys.time(),
+                               appended  = nrow(df),
+                               replaced  = 0L,
+                               new_sites = length(unique(df$site)),
+                               new_types = length(unique(df$type)),
+                               stringsAsFactors = FALSE
                              )
-
-                             self$dataset <- df
-                             self$sources <- c("sample")
                              rng <- range(df$date, na.rm = TRUE)
                              self$filters <- list(
                                date  = rng,
@@ -72,20 +112,20 @@ DataModel <- R6::R6Class("DataModel",
                              req_cols <- c("id","site","date","type","value","carbon_emission_kgco2e")
                              errs <- character()
                              
-                             # 1) missing required columns
+                             # missing required columns
                              missing <- setdiff(req_cols, names(df))
                              if (length(missing)) {
                                errs <- c(errs, sprintf("Missing required columns: %s", paste(missing, collapse = ", ")))
                                return(list(errors = errs))  # stop early—other checks depend on these columns
                              }
                              
-                             # 2) unparseable dates (i.e., NA after canonicalize())
+                             # unparseable dates (i.e., NA after canonicalize())
                              n_bad_date <- sum(is.na(df$date))
                              if (n_bad_date > 0) {
                                errs <- c(errs, sprintf("Unparseable dates: %d row(s) have NA in 'date' after parsing.", n_bad_date))
                              }
                              
-                             # 3) negative numeric values
+                             # negative numeric values
                              for (nm in c("value","carbon_emission_kgco2e")) {
                                bad_idx <- which(!is.na(df[[nm]]) & df[[nm]] < 0)
                                if (length(bad_idx)) {
@@ -94,7 +134,7 @@ DataModel <- R6::R6Class("DataModel",
                                }
                              }
                              
-                             # 4) duplicate id within the upload (merge will keep last later; just flag here)
+                             # duplicate id within the upload (merge will keep last later; just flag here)
                              dup_tbl <- dplyr::count(df, id, name = "n")
                              dup_tbl <- dplyr::filter(dup_tbl, n > 1)
                              if (nrow(dup_tbl) > 0) {
@@ -109,7 +149,7 @@ DataModel <- R6::R6Class("DataModel",
                            merge = function(df, source_tag = NULL) {
                              stopifnot(is.data.frame(df))
                              
-                             # Keep only the last occurrence per id (policy: "last wins")
+                             # Keep only the last occurrence per id 
                              df_last <- df[!duplicated(df$id, fromLast = TRUE), , drop = FALSE]
                              
                              # Work with the required contract columns to avoid rbind() column mismatches
@@ -141,8 +181,39 @@ DataModel <- R6::R6Class("DataModel",
                              }
                              
                              # Update sources
+                             # New sites/types introduced by this upload
+                             new_sites <- setdiff(unique(df_last$site), before_sites)
+                             new_types <- setdiff(unique(df_last$type), before_types)
+                             
+                             # Ensure sources is a data.frame (robust if older objects had a character vector)
+                             if (is.null(self$sources)) {
+                               self$sources <- data.frame(
+                                 tag = character(), time = as.POSIXct(character()),
+                                 appended = integer(), replaced = integer(), new_sites = integer(), new_types = integer(),
+                                 stringsAsFactors = FALSE
+                               )
+                             } else if (!is.data.frame(self$sources)) {
+                               self$sources <- data.frame(
+                                 tag = as.character(self$sources), time = rep(Sys.time(), length(self$sources)),
+                                 appended = NA_integer_, replaced = NA_integer_, new_sites = NA_integer_, new_types = NA_integer_,
+                                 stringsAsFactors = FALSE
+                               )
+                             }
+                             
+                             # Tag for this upload
                              tag <- if (is.null(source_tag)) sprintf("upload_%s", format(Sys.time(), "%Y%m%d-%H%M%S")) else source_tag
-                             self$sources <- c(self$sources, tag)
+                             
+                             # Append provenance row
+                             meta <- data.frame(
+                               tag       = tag,
+                               time      = Sys.time(),
+                               appended  = as.integer(appended),
+                               replaced  = as.integer(replaced),
+                               new_sites = as.integer(length(new_sites)),
+                               new_types = as.integer(length(new_types)),
+                               stringsAsFactors = FALSE
+                             )
+                             self$sources <- rbind(self$sources, meta)
                              
                              # Refresh filters from merged data
                              rng <- range(self$dataset$date, na.rm = TRUE)
@@ -152,10 +223,6 @@ DataModel <- R6::R6Class("DataModel",
                                types = sort(unique(self$dataset$type))
                              )
                              
-                             # New sites/types introduced by this upload
-                             new_sites <- setdiff(unique(df_last$site), before_sites)
-                             new_types <- setdiff(unique(df_last$type), before_types)
-                             
                              list(
                                appended  = as.integer(appended),
                                replaced  = as.integer(replaced),
@@ -163,26 +230,29 @@ DataModel <- R6::R6Class("DataModel",
                                new_types = as.integer(length(new_types))
                              )
                            },
-                           reset = function() list(n_rows = 0, n_sites = 0),
-                           set_filters = function(date_range, sites = NULL, types = NULL) {
-                             self$filters$date  <- date_range
-                             self$filters$sites <- sites
-                             self$filters$types <- types
-                             invisible(self)
-                           },
-                           filtered_data = function() {
-                             df <- self$dataset
-                             f  <- self$filters
-                             if (!is.null(f$date))  df <- dplyr::filter(df, date >= f$date[1], date <= f$date[2])
-                             if (!is.null(f$sites) && length(f$sites)) df <- dplyr::filter(df, site %in% f$sites)
-                             if (!is.null(f$types) && length(f$types)) df <- dplyr::filter(df, type %in% f$types)
-                             df
-                           },
                            status = function() {
                              if (is.null(self$dataset)) {
-                               return(list(n_rows = 0, n_sites = 0, date_min = NA, date_max = NA,
-                                           sites = character(), types = character(), sources_count = length(self$sources)))
+                               return(list(
+                                 n_rows = 0, n_sites = 0, date_min = NA, date_max = NA,
+                                 sites = character(), types = character(),
+                                 sources_count = 0L, uploads_total = 0L,
+                                 last_source = NA_character_, last_time = as.POSIXct(NA)
+                               ))
                              }
+                             
+                             is_df <- is.data.frame(self$sources)
+                             sc <- if (is.null(self$sources)) 0L else as.integer(NROW(self$sources))  # works for vector or df
+                             
+                             last_source <- if (sc > 0) {
+                               if (is_df && "tag" %in% names(self$sources)) utils::tail(self$sources$tag, 1) else utils::tail(as.character(self$sources), 1)
+                             } else NA_character_
+                             
+                             last_time <- if (is_df && sc > 0 && "time" %in% names(self$sources)) {
+                               utils::tail(self$sources$time, 1)
+                             } else {
+                               as.POSIXct(NA)
+                             }
+                             
                              list(
                                n_rows = nrow(self$dataset),
                                n_sites = length(unique(self$dataset$site)),
@@ -190,7 +260,10 @@ DataModel <- R6::R6Class("DataModel",
                                date_max = max(self$dataset$date, na.rm = TRUE),
                                sites = sort(unique(self$dataset$site)),
                                types = sort(unique(self$dataset$type)),
-                               sources_count = length(self$sources)
+                               sources_count = sc,
+                               uploads_total = max(0L, sc - 1L),  # first entry is the bundled sample
+                               last_source = last_source,
+                               last_time = last_time
                              )
                            },
                            kpi_total_consumption = function() {
