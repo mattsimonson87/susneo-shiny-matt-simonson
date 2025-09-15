@@ -193,12 +193,55 @@ DataModel <- R6::R6Class("DataModel",
                                sources_count = length(self$sources)
                              )
                            },
-                           kpi_total_consumption = function() 0,
-                           kpi_total_emissions = function() 0,
-                           kpi_avg_daily_consumption = function() 0,
-                           timeseries = function(by = c("day","month")) data.frame(),
-                           compare = function(by = c("site","type")) data.frame(),
-                           summary_table = function() data.frame()
+                           kpi_total_consumption = function() {
+                             df <- self$filtered_data()
+                             sum(df$value, na.rm = TRUE)
+                           },
+                           
+                           kpi_total_emissions = function() {
+                             df <- self$filtered_data()
+                             sum(df$carbon_emission_kgco2e, na.rm = TRUE)
+                           },
+                           
+                           kpi_avg_daily_consumption = function() {
+                             df <- self$filtered_data()
+                             if (!nrow(df)) return(0)
+                             rng <- range(df$date, na.rm = TRUE)
+                             days <- as.integer(rng[2] - rng[1]) + 1L
+                             if (is.na(days) || days <= 0) return(0)
+                             sum(df$value, na.rm = TRUE) / days
+                           },
+                           
+                           timeseries = function(by = c("day","month")) {
+                             by <- match.arg(by)
+                             df <- self$filtered_data()
+                             if (!nrow(df)) return(df[0, , drop = FALSE])
+                             df$period <- if (by == "month") as.Date(cut(df$date, "month")) else df$date
+                             dplyr::summarise(
+                               dplyr::group_by(df, period),
+                               value    = sum(value, na.rm = TRUE),
+                               emissions = sum(carbon_emission_kgco2e, na.rm = TRUE),
+                               .groups = "drop"
+                             ) |>
+                               dplyr::arrange(period)
+                           },
+                           
+                           compare = function(by = c("site","type")) {
+                             by <- match.arg(by)
+                             df <- self$filtered_data()
+                             if (!nrow(df)) return(df[0, , drop = FALSE])
+                             out <- dplyr::summarise(
+                               dplyr::group_by(df, dplyr::across(dplyr::all_of(by))),
+                               value    = sum(value, na.rm = TRUE),
+                               emissions = sum(carbon_emission_kgco2e, na.rm = TRUE),
+                               .groups = "drop"
+                             )
+                             out[order(out$value, decreasing = TRUE), , drop = FALSE]
+                           },
+                           
+                           summary_table = function() {
+                             self$filtered_data()
+                           }
                          ),
                          private = list(
                            parse_date_flex = function(x) {
