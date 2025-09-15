@@ -4,7 +4,8 @@
 \name{susneoShinyMatt-package}
 \alias{susneoShinyMatt}
 \alias{susneoShinyMatt-package}
-\title{susneoShinyMatt: SUSNEO Shiny App (Take-Home)}
+\title{susneoShinyMatt
+Package documentation and central imports.}
 \description{
 Shiny app scaffold with modules, R6, tests, and CI.
 }
