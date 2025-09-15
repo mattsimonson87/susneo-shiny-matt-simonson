@@ -3,6 +3,7 @@
 export(run_app)
 importFrom(R6,R6Class)
 importFrom(dplyr,count)
+importFrom(dplyr,distinct)
 importFrom(dplyr,filter)
 importFrom(plotly,layout)
 importFrom(plotly,plot_ly)

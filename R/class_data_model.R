@@ -284,7 +284,13 @@ DataModel <- R6::R6Class("DataModel",
                              if (is.na(days) || days <= 0) return(0)
                              sum(df$value, na.rm = TRUE) / days
                            },
-                           
+                           kpi_energy_intensity = function() {
+                             df <- self$filtered_data()
+                             if (!nrow(df)) return(0)
+                             sd <- nrow(dplyr::distinct(df, site, date))  # site-day combos
+                             if (sd <= 0) return(0)
+                             sum(df$value, na.rm = TRUE) / sd
+                           },
                            timeseries = function(by = c("day","month")) {
                              by <- match.arg(by)
                              df <- self$filtered_data()

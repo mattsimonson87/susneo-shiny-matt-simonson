@@ -8,10 +8,15 @@ mod_dashboard_ui <- function(id) {
                     shiny::div(class = "kpis",
                                shiny::uiOutput(ns("kpi1")),
                                shiny::uiOutput(ns("kpi2")),
-                               shiny::uiOutput(ns("kpi3"))
+                               shiny::uiOutput(ns("kpi3")),
+                               shiny::uiOutput(ns("kpi4"))
                     ),
                     plotly::plotlyOutput(ns("plot_ts")),
                     plotly::plotlyOutput(ns("plot_cmp")),
+                    shiny::div(
+                      style = "display:flex; justify-content:flex-end; margin: 6px 0;",
+                      shiny::downloadButton(ns("download_csv"), "Download filtered CSV")
+                    ),
                     DT::DTOutput(ns("tbl"))
       )
     )
@@ -21,10 +26,18 @@ mod_dashboard_ui <- function(id) {
 # Server
 mod_dashboard_server <- function(id, dm) {
   shiny::moduleServer(id, function(input, output, session) {
-    
+
     # Accept either a reactive or a plain DataModel
     get_dm <- if (is.function(dm)) dm else function() dm
     model  <- shiny::reactive(get_dm())
+    
+    # Brand palette (teal family)
+    brand <- list(
+      primary    = "#15B3A8",  # SUSNEO teal
+      primary_lt = "#5FD4C9",  # lighter teal
+      dark       = "#0F8C86",  # deep teal
+      grid       = "#E9F7F5"   # soft gridline
+    )
     
     output$filters <- shiny::renderUI({
       shiny::req(model())
@@ -73,13 +86,24 @@ mod_dashboard_server <- function(id, dm) {
       DT::datatable(df, rownames = FALSE, options = list(pageLength = 10, columnDefs = columnDefs))
     })
     
+    output$download_csv <- shiny::downloadHandler(
+      filename = function() {
+        paste0("susneo_filtered_", format(Sys.time(), "%Y%m%d-%H%M%S"), ".csv")
+      },
+      content = function(path) {
+        model()$set_filters(input$dates, input$sites, input$types)
+        df <- model()$summary_table()  # currently == filtered_data()
+        readr::write_csv(df, path, na = "")
+      }
+    )
+    
     fmt_num <- function(x) formatC(x, big.mark = ",", digits = 0, format = "f")
     
     output$kpi1 <- shiny::renderUI({
-      shiny::req(model(), input$dates)  # create reactive dep
+      shiny::req(model(), input$dates)
       model()$set_filters(input$dates, input$sites, input$types)
       shiny::div(
-        style = "padding:8px; border-radius:12px; background:#f8f9fa; margin-bottom:8px;",
+        class = "kpi-card",
         shiny::strong("Total consumption"), shiny::br(),
         shiny::span(style="font-size:1.4rem;", fmt_num(model()$kpi_total_consumption()))
       )
@@ -89,7 +113,7 @@ mod_dashboard_server <- function(id, dm) {
       shiny::req(model(), input$dates)
       model()$set_filters(input$dates, input$sites, input$types)
       shiny::div(
-        style = "padding:8px; border-radius:12px; background:#f8f9fa; margin-bottom:8px;",
+        class = "kpi-card",
         shiny::strong("Total emissions (kgCO2e)"), shiny::br(),
         shiny::span(style="font-size:1.4rem;", fmt_num(model()$kpi_total_emissions()))
       )
@@ -99,15 +123,27 @@ mod_dashboard_server <- function(id, dm) {
       shiny::req(model(), input$dates)
       model()$set_filters(input$dates, input$sites, input$types)
       shiny::div(
-        style = "padding:8px; border-radius:12px; background:#f8f9fa; margin-bottom:8px;",
+        class = "kpi-card",
         shiny::strong("Avg daily consumption"), shiny::br(),
         shiny::span(style="font-size:1.4rem;", fmt_num(model()$kpi_avg_daily_consumption()))
       )
     })
     
-    # Time series (auto day vs month)
-    output$plot_ts <- plotly::renderPlotly({
+    # If you added KPI4 (energy intensity), switch it too:
+    output$kpi4 <- shiny::renderUI({
       shiny::req(model(), input$dates)
+      model()$set_filters(input$dates, input$sites, input$types)
+      shiny::div(
+        class = "kpi-card",
+        shiny::strong("Energy intensity (per site-day)"), shiny::br(),
+        shiny::span(style="font-size:1.4rem;", fmt_num(model()$kpi_energy_intensity()))
+      )
+    })
+    
+    
+    # Time series (auto day vs month)
+    output$plot_ts <- renderPlotly({
+      req(model(), input$dates)
       model()$set_filters(input$dates, input$sites, input$types)
       
       st <- model()$status()
@@ -115,29 +151,47 @@ mod_dashboard_server <- function(id, dm) {
                 (st$date_max - st$date_min) > 180) "month" else "day"
       
       ts <- model()$timeseries(by = by)
-      shiny::validate(shiny::need(nrow(ts) > 0, "No data for selected filters."))
+      validate(need(nrow(ts) > 0, "No data for selected filters."))
       
-      p <- plotly::plot_ly(ts, x = ~period, y = ~value, type = "scatter", mode = "lines")
-      plotly::layout(p, title = paste0("Time series (", by, ")"),
-                     xaxis = list(title = ""), yaxis = list(title = "Consumption"))
+      p <- plot_ly(
+        ts, x = ~period, y = ~value,
+        type = "scatter", mode = "lines",
+        line = list(color = brand$primary, width = 3),
+        hovertemplate = "%{x}<br>Consumption: %{y}<extra></extra>"
+      )
+      layout(
+        p,
+        title = paste0("Time series (", by, ")"),
+        xaxis = list(title = "", gridcolor = brand$grid, zerolinecolor = brand$grid),
+        yaxis = list(title = "Consumption", gridcolor = brand$grid, zerolinecolor = brand$grid),
+        paper_bgcolor = "white", plot_bgcolor = "white"
+      )
     })
     
     # Compare by type (horizontal bars)
-    output$plot_cmp <- plotly::renderPlotly({
-      shiny::req(model(), input$dates, input$compare_by)
+    output$plot_cmp <- renderPlotly({
+      req(model(), input$dates, input$compare_by)
       model()$set_filters(input$dates, input$sites, input$types)
       
       by  <- if (identical(input$compare_by, "site")) "site" else "type"
       cmp <- model()$compare(by = by)
-      shiny::validate(shiny::need(nrow(cmp) > 0, "No data for selected filters."))
+      validate(need(nrow(cmp) > 0, "No data for selected filters."))
       
-      # order largest first and set factor for stable ordering
       cmp <- cmp[order(cmp$value, decreasing = TRUE), ]
       cmp[[by]] <- factor(cmp[[by]], levels = rev(cmp[[by]]))
       
-      p <- plotly::plot_ly(cmp, x = ~value, y = cmp[[by]], type = "bar", orientation = "h")
-      plotly::layout(p, title = paste("By", by),
-                     xaxis = list(title = "Consumption"), yaxis = list(title = ""))
+      p <- plot_ly(
+        cmp, x = ~value, y = cmp[[by]],
+        type = "bar", orientation = "h",
+        marker = list(color = brand$primary)
+      )
+      layout(
+        p,
+        title = paste("By", by),
+        xaxis = list(title = "Consumption", gridcolor = brand$grid, zerolinecolor = brand$grid),
+        yaxis = list(title = "", categoryorder = "array", categoryarray = levels(cmp[[by]])),
+        paper_bgcolor = "white", plot_bgcolor = "white"
+      )
     })
     
   })
