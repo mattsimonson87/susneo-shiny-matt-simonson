@@ -15,7 +15,7 @@ mod_data_upload_ui <- function(id) {
       shiny::fileInput(
         ns("upload_csv"), "Choose CSV",
         accept = ".csv",
-        buttonLabel = "Browse…",
+        buttonLabel = "Browse...",
         placeholder = "No file selected"
       ),
       shiny::helpText("Required columns: id, site, date, type, value, carbon_emission_kgco2e")
