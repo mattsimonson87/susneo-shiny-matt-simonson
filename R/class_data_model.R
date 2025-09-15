@@ -45,7 +45,7 @@ DataModel <- R6::R6Class("DataModel",
                            canonicalize = function(df) {
                              stopifnot(is.data.frame(df))
                              out <- df
-                             
+                             names(out) <- canonical_names(names(out))
                              # helper: trim + collapse internal spaces
                              squish <- function(x) gsub("\\s+", " ", trimws(as.character(x)))
                              
@@ -103,8 +103,62 @@ DataModel <- R6::R6Class("DataModel",
                              
                              if (length(errs) == 0) TRUE else list(errors = errs)
                            },
-                           merge = function(df, source_tag = "upload_1") {
-                             list(appended = 0, replaced = 0, new_sites = 0, new_types = 0)
+                           merge = function(df, source_tag = NULL) {
+                             stopifnot(is.data.frame(df))
+                             
+                             # Keep only the last occurrence per id (policy: "last wins")
+                             df_last <- df[!duplicated(df$id, fromLast = TRUE), , drop = FALSE]
+                             
+                             # Work with the required contract columns to avoid rbind() column mismatches
+                             req <- c("id","site","date","type","value","carbon_emission_kgco2e")
+                             df_last <- df_last[, req, drop = FALSE]
+                             
+                             # Baseline (pre-merge) uniques for "new_*" counts
+                             before_sites <- if (is.null(self$dataset)) character() else unique(self$dataset$site)
+                             before_types <- if (is.null(self$dataset)) character() else unique(self$dataset$type)
+                             
+                             if (is.null(self$dataset)) {
+                               existing <- self$dataset <- df_last
+                               appended <- nrow(df_last)
+                               replaced <- 0L
+                             } else {
+                               existing <- self$dataset[, req, drop = FALSE]
+                               ids_upload   <- df_last$id
+                               ids_existing <- existing$id
+                               
+                               # Remove any existing rows whose IDs appear in the upload (override)
+                               keep_idx <- !(ids_existing %in% ids_upload)
+                               existing_keep <- existing[keep_idx, , drop = FALSE]
+                               
+                               # Append the upload rows (now the only occurrence for those IDs)
+                               self$dataset <- rbind(existing_keep, df_last)
+                               
+                               appended <- sum(!(ids_upload %in% ids_existing))           # new ids
+                               replaced <- sum(ids_upload %in% ids_existing)              # overlapped ids (incl. identical content)
+                             }
+                             
+                             # Update sources
+                             tag <- if (is.null(source_tag)) sprintf("upload_%s", format(Sys.time(), "%Y%m%d-%H%M%S")) else source_tag
+                             self$sources <- c(self$sources, tag)
+                             
+                             # Refresh filters from merged data
+                             rng <- range(self$dataset$date, na.rm = TRUE)
+                             self$filters <- list(
+                               date  = rng,
+                               sites = sort(unique(self$dataset$site)),
+                               types = sort(unique(self$dataset$type))
+                             )
+                             
+                             # New sites/types introduced by this upload
+                             new_sites <- setdiff(unique(df_last$site), before_sites)
+                             new_types <- setdiff(unique(df_last$type), before_types)
+                             
+                             list(
+                               appended  = as.integer(appended),
+                               replaced  = as.integer(replaced),
+                               new_sites = as.integer(length(new_sites)),
+                               new_types = as.integer(length(new_types))
+                             )
                            },
                            reset = function() list(n_rows = 0, n_sites = 0),
                            set_filters = function(date_range, sites = NULL, types = NULL) {
