@@ -1,7 +1,6 @@
 #' Application UI
 app_ui <- function() {
-  # Base theme (light). We'll flip to dark in server via update, but
-  # these CSS rules below handle the contrast and component colors.
+  # Single base theme (Flatly). We do NOT swap themes on toggle; CSS handles dark.
   theme <- bslib::bs_theme(
     version = 5,
     bootswatch = "flatly",
@@ -13,107 +12,179 @@ app_ui <- function() {
     heading_font = bslib::font_google("Poppins")
   )
   
-  # Component styles that adapt to Bootstrap CSS variables.
+  # Custom rules keyed off [data-bs-theme] + Bootstrap variables
   theme <- bslib::bs_add_rules(theme, "
-    /* Gradient navbar stays; we control text colors below */
-    .navbar {
-      background: linear-gradient(90deg, #0EA5A7 0%, #5FD4C9 100%) !important;
+    /* ---------- Dark-mode variable overrides (Bootstrap 5.3) ---------- */
+    [data-bs-theme='dark'] {
+      --bs-body-bg: #0e1117;
+      --bs-body-color: #e6edf3;
+      --bs-border-color: #2a2a2a;
+      --bs-secondary-bg: #1a1a1a;
+      --bs-tertiary-bg: #111111;
+
+      --bs-card-bg: #1a1a1a;
+      --bs-card-border-color: #2a2a2a;
+
+      --bs-table-bg: #1a1a1a;
+      --bs-table-border-color: #2a2a2a;
+
+      --bs-form-control-bg: #000000;
+      --bs-form-control-color: #e6edf3;
+      --bs-form-control-border-color: #3a3a3a;
+
+      --bs-form-select-bg: #000000;
+      --bs-form-select-color: #e6edf3;
+      --bs-form-select-border-color: #3a3a3a;
+
+      --bs-dropdown-bg: #000000;
+      --bs-dropdown-link-color: #e6edf3;
     }
-    /* Give navbar content breathing room so the toggle isn't glued to edge */
+
+    /* Base */
+    body { background-color: #fafafa; transition: background-color 0.3s ease; }
+    [data-bs-theme='dark'] body { background-color: var(--bs-body-bg); }
+
+    /* Main surface areas */
+    [data-bs-theme='dark'] .bslib-page-fillable,
+    [data-bs-theme='dark'] .main-panel,
+    [data-bs-theme='dark'] .tab-content,
+    [data-bs-theme='dark'] .tab-pane {
+      background: var(--bs-tertiary-bg) !important;
+    }
+
+    /* Sidebar */
+    [data-bs-theme='dark'] .bslib-sidebar-layout > .sidebar,
+    [data-bs-theme='dark'] .bslib-sidebar-layout .sidebar {
+      background: var(--bs-secondary-bg) !important;
+      border-right: 1px solid var(--bs-border-color) !important;
+    }
+
+    /* Navbar gradient (light base) */
+    .navbar { background: linear-gradient(90deg, #0EA5A7 0%, #5FD4C9 100%) !important; }
     .navbar .container-fluid { padding-inline: 16px; }
 
-    /* KPI card uses token so it adapts in dark */
+    /* KPI cards */
     .kpi-card {
-      padding: 10px; border-radius: 12px;
-      background: var(--bs-card-bg);
-      box-shadow: 0 1px 3px rgba(0,0,0,.06);
-      margin-bottom: 8px;
+      padding: 10px; border-radius: 12px; background: var(--bs-card-bg);
+      box-shadow: 0 1px 3px rgba(0,0,0,.06); margin-bottom: 8px;
     }
+    [data-bs-theme='dark'] .kpi-card { background: #1a1a1a !important; border: 1px solid #2a2a2a; }
+
+    /* Buttons and inputs */
     .btn, .form-select, .form-control { border-radius: 10px; }
 
-    /* --- Accessibility helpers --- */
-    .skip-link { position:absolute; left:-9999px; }
-    .skip-link:focus {
-      left: 8px; top: 8px; z-index: 10000; background: #fff;
-      padding: .5rem .75rem; border-radius: .5rem; border: 2px solid #0d6efd;
+    /* Inputs + selectize */
+    [data-bs-theme='dark'] .form-control, 
+    [data-bs-theme='dark'] .form-select, 
+    [data-bs-theme='dark'] .selectize-input {
+      background-color: #000000 !important; color: #e6edf3 !important; border-color: #3a3a3a !important;
     }
-    :focus { outline: 2px solid #0d6efd; outline-offset: 2px; }
-    .sr-only { position:absolute!important; width:1px; height:1px; padding:0; margin:-1px;
-      overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
+    [data-bs-theme='light'] .form-control, 
+    [data-bs-theme='light'] .form-select, 
+    [data-bs-theme='light'] .selectize-input {
+      background-color: #ffffff !important; color: #0f172a !important; border-color: #dee2e6 !important;
     }
-
-    /* --- Inputs & menus follow body tokens (dark-friendly) --- */
-    .form-control, .form-select, .selectize-input {
-      background-color: var(--bs-body-bg) !important;
-      color: var(--bs-body-color) !important;
-      border-color: color-mix(in srgb, var(--bs-body-color) 25%, transparent);
-    }
-    .selectize-dropdown, .dropdown-menu {
-      background-color: var(--bs-body-bg) !important;
-      color: var(--bs-body-color) !important;
-      border-color: color-mix(in srgb, var(--bs-body-color) 25%, transparent) !important;
+    [data-bs-theme='dark'] .selectize-dropdown {
+      background-color: #000000 !important; border-color: #3a3a3a !important;
     }
 
-    /* DataTable readability + keyboard focus ring */
-    .dataTable td.focus, table.dataTable tbody td.focus {
-      outline: 2px solid var(--bs-primary) !important; outline-offset: -2px;
-    }
-    .table.dataTable, .table.dataTable thead th,
-    .dataTables_info, .dataTables_paginate {
-      background-color: var(--bs-body-bg) !important;
-      color: var(--bs-body-color) !important;
-    }
+    /* Data tables */
+    [data-bs-theme='dark'] .table.dataTable { background-color: #1a1a1a !important; }
 
-    /* --- Navbar text colors: light vs dark --------------------- */
-    /* Light: brand teal; links dark for contrast on the teal gradient */
-    [data-bs-theme='light'] .navbar .navbar-brand { color: #0F8C86 !important; }
-    [data-bs-theme='light'] .navbar .nav-link     { color: #0e2f2e !important; }
-    [data-bs-theme='light'] .navbar .nav-link.active {
-      color: #0F8C86 !important; border-bottom: 2px solid currentColor;
-    }
+    /* Navbar text colors - force white in light only so dark rules can apply */
+    [data-bs-theme='light'] .navbar * { color: #ffffff !important; }
+    [data-bs-theme='light'] .navbar .nav-link.active { border-bottom: 3px solid #ffffff !important; font-weight: 600 !important; }
 
-    /* Dark: brand light teal; links nearly white */
+    /* Dark-mode navbar look */
     [data-bs-theme='dark'] .navbar { background: linear-gradient(90deg, #0b5b5a 0%, #1e7f78 100%) !important; }
     [data-bs-theme='dark'] .navbar .navbar-brand { color: #5FD4C9 !important; }
-    [data-bs-theme='dark'] .navbar .nav-link     { color: #e6edf3 !important; }
-    [data-bs-theme='dark'] .navbar .nav-link.active {
-      color: #ffffff !important; border-bottom: 2px solid #5FD4C9;
+    [data-bs-theme='dark'] .navbar .nav-link,
+    [data-bs-theme='dark'] .navbar-nav .nav-link,
+    [data-bs-theme='dark'] .navbar .navbar-text { color: #e6edf3 !important; }
+    [data-bs-theme='dark'] .navbar .nav-link.active { color: #ffffff !important; border-bottom: 3px solid #5FD4C9 !important; font-weight: 600 !important; }
+
+    /* Dark mode toggle styling */
+    .dark-mode-navbar-toggle { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+    .form-switch .form-check-input {
+      width: 44px; height: 24px; background-color: rgba(255,255,255,0.3);
+      border-color: rgba(255,255,255,0.5); cursor: pointer;
     }
+    .form-switch .form-check-input:checked { background-color: #5FD4C9; border-color: #5FD4C9; }
+    [data-bs-theme='dark'] .form-switch .form-check-input:not(:checked) { background-color: #3a3a3a; border-color: #3a3a3a; }
   ")
   
   shiny::tagList(
-    shiny::tags$head(),  # keep a <head> for the CSS above
+    shiny::tags$head(
+      # One self-contained script in <head>: set initial theme, wire the toggle, notify Shiny
+      shiny::tags$script(shiny::HTML(
+        "(function(){
+          var saved = localStorage.getItem('susneo_theme') || 'light';
+          function applyTheme(mode){
+            document.documentElement.setAttribute('data-bs-theme', mode);
+            if (document.body) document.body.setAttribute('data-bs-theme', mode);
+          }
+          applyTheme(saved);
+
+          function wire(){
+            var t = document.getElementById('dark_mode');
+            if(!t) return;
+            t.checked = (saved === 'dark');
+
+            if(window.Shiny && Shiny.setInputValue){
+              Shiny.setInputValue('dark_mode', saved === 'dark', {priority:'event'});
+            }
+
+            t.addEventListener('change', function(){
+              var mode = this.checked ? 'dark' : 'light';
+              localStorage.setItem('susneo_theme', mode);
+              applyTheme(mode);
+              if(window.Shiny && Shiny.setInputValue){
+                Shiny.setInputValue('dark_mode', mode === 'dark', {priority:'event'});
+              }
+            });
+          }
+          if(document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', wire); } else { wire(); }
+        })();"
+      ))
+      
+    ),
     
     bslib::page_fillable(
       bslib::page_navbar(
-        # Skip link first in tab order
-        title = shiny::tagList(
-          shiny::tags$a(href = "#main", class = "skip-link", tabindex = "0", "Skip to content"),
-          "SUSNEO – Energy & Emissions"
-        ),
+        title = "SUSNEO - Energy & Emissions",
         theme = theme,
         
         bslib::nav_panel(
           "Dashboard",
           bslib::layout_sidebar(
             sidebar = bslib::sidebar(
-              width = 360, open = "desktop",
+              width = 360, 
+              open  = "desktop",
               shiny::h4("Filters & Upload"),
               mod_data_upload_ui("upload")
             ),
-            # Landmarked main region (target for skip link)
-            shiny::tags$main(id = "main", role = "main", tabindex = "-1",
-                             mod_dashboard_ui("dash")
+            shiny::tags$main(
+              id = "main", role = "main", class = "main-panel",
+              mod_dashboard_ui("dash")
             )
           )
         ),
         
-        # Right-aligned dark-mode toggle with nicer spacing
+        # Dark mode control in the navbar
         bslib::nav_spacer(),
         bslib::nav_item(
-          shiny::div(class = "ms-auto me-3 d-flex align-items-center gap-2",
-                     shiny::span(class = "navbar-text", "Dark mode"),
-                     shiny::checkboxInput("dark_mode", label = NULL, value = FALSE, width = "auto")
+          shiny::div(
+            class = "dark-mode-navbar-toggle",
+            shiny::span(class = "navbar-text", "Dark mode"),
+            shiny::div(
+              class = "form-check form-switch",
+              shiny::tags$input(
+                type  = "checkbox",
+                class = "form-check-input",
+                id    = "dark_mode",
+                role  = "switch"
+              )
+            )
           )
         )
       )

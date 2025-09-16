@@ -46,17 +46,17 @@ mod_dashboard_server <- function(id, dm, is_dark = shiny::reactive(FALSE)) {
     brand <- shiny::reactive({
       if (is_dark()) {
         list(
-          primary = "#5FD4C9",       # light teal line/bars
-          bg      = "#0e1117",       # plot bg / paper bg
-          fg      = "#e6edf3",       # axis/title/hover font
-          grid    = "#2a2f3a"        # grid/zeroline
+          primary = "#5FD4C9",               # line/bars
+          bg      = "rgba(0,0,0,0)",         # <-- transparent so it matches the app surface
+          fg      = "#e6edf3",               # axis/title/hover
+          grid    = "#2a2f3a"                # grids
         )
       } else {
         list(
           primary = "#15B3A8",
-          bg      = "#ffffff",
+          bg      = "rgba(0,0,0,0)",         # <-- transparent in light too
           fg      = "#0f172a",
-          grid    = "#E9F7F5"
+          grid    = "#e9ecef"
         )
       }
     })

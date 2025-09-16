@@ -58,7 +58,7 @@ mod_data_upload_server <- function(id) {
       status_bump()
       st <- rv_model()$status()
       shiny::HTML(sprintf(
-        "Rows: <b>%s</b> | Sites: <b>%s</b> | Dates: <b>%s</b> -> <b>%s</b> | Sources: <b>%s</b> | Uploads: <b>%s</b> | Last: <b>%s</b> at <b>%s</b>",
+        "Rows: <b>%s</b> | Sites: <b>%s</b> | Dates: <b>%s</b> To <b>%s</b> | Sources: <b>%s</b> | Uploads: <b>%s</b> | Last: <b>%s</b> at <b>%s</b>",
         st$n_rows, st$n_sites, st$date_min, st$date_max, st$sources_count, st$uploads_total,
         ifelse(is.na(st$last_source), "-", st$last_source),
         ifelse(is.na(st$last_time), "-", format(st$last_time, "%Y-%m-%d %H:%M"))

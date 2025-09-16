@@ -10,10 +10,11 @@ A production-style, **golem-packaged** Shiny app: upload CSVs, validate & canoni
 
 ## Features
 - **Packaged app:** `susneoShinyMatt::run_app()`
-- **Upload + merge:** Append new IDs; override existing IDs (keep last within upload)
-- **Validation & canonicalization:** strict schema, date parsing (incl. Excel 1904), Title Case types, UPPERCASE sites
+- **Upload + merge:** Append new IDs; override existing IDs (keep **last** within an upload)
+- **Validation & canonicalization:** strict schema, date parsing (incl. Excel 1904), Title Case `type`, UPPERCASE `site`
 - **Reactive dashboard:** Date/Site/Type filters → KPIs, time-series, comparisons, summary table
-- **Provenance:** source counts and status panel
+- **Provenance:** source counts + status panel
+- **Dark mode:** attribute-based `[data-bs-theme]` toggle (persisted in localStorage); Plotly styled to match
 
 ------------------------------------------------------------------------
 
@@ -26,7 +27,7 @@ A production-style, **golem-packaged** Shiny app: upload CSVs, validate & canoni
 - [x] Unit tests (all passing; high coverage on `DataModel`)
 - [X] Export
 - [X] Performance profiling on large files
-- [ ] A11y pass and dark mode toggle
+- [X] Dark mode toggle
 
 ------------------------------------------------------------------------
 
@@ -60,7 +61,7 @@ pak::pak("mattsimonson87/susneo-shiny-matt-simonson")
 **Required columns (canonical names):**
 - `id` (unique key; treated as character)
 - `site` (character; canonicalized to UPPERCASE)
-- `date` (Date; multiple formats supported, incl. Excel serials; 1904 fallback)
+- `date` (Date; multiple formats supported)
 - `type` (character; Title Case with ALL-CAPS preserved)
 - `value` (numeric, ≥ 0)
 - `carbon_emission_kgco2e` (numeric, ≥ 0)
@@ -112,17 +113,24 @@ pak::pak("mattsimonson87/susneo-shiny-matt-simonson")
 - **Visuals**
   - Time series (daily/monthly)
   - Comparison bar chart (by `site` or `type`)
-- **Table**: summary by `site` and `type` for current filters
+- **Table**: summary for current filters
 
+------------------------------------------------------------------------
+
+## Dark Mode (how it works)
+
+-   Single base theme (Flatly); no theme swapping
+-   Toggle sets data-bs-theme="light|dark" on <html> and <body>
+-   Dark CSS overrides Bootstrap variables (e.g., --bs-body-bg, --bs-card-bg)
+-   Plotly backgrounds set to transparent so charts inherit the app surface
 
 ------------------------------------------------------------------------
 
 ## UX States
 
--   Invalid upload → dashboard unchanged; clear error with what failed and how to fix\
--   Valid upload → dataset updates; filters expand; success toast shows counts\
--   **Reset** → restores bundled sample and clears upload history\
--   (Optional if time allows) **Undo last upload**
+-   Invalid upload → dashboard unchanged; clear error with what failed and how to fix
+-   Valid upload → dataset updates; filters expand; success toast shows counts
+-   **Reset** → restores bundled sample and clears upload history
 
 ------------------------------------------------------------------------
 
@@ -177,7 +185,7 @@ On app start, the sample is loaded and immediately visible.
 
 ## Built With
 
-golem · shiny · bslib · plotly · R6 · dplyr · tidyr · readr · readxl · lubridate · stringr · DT · testthat · GitHub Actions
+golem · shiny · bslib · plotly · R6 · dplyr · tidyr · readr · lubridate · stringr · DT · testthat · GitHub Actions
 
 
 ------------------------------------------------------------------------
