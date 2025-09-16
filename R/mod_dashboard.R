@@ -36,20 +36,30 @@ mod_dashboard_ui <- function(id) {
 }
 
 # Server
-mod_dashboard_server <- function(id, dm) {
+mod_dashboard_server <- function(id, dm, is_dark = shiny::reactive(FALSE)) {
   shiny::moduleServer(id, function(input, output, session) {
-
-    # Accept either a reactive or a plain DataModel
+    
     get_dm <- if (is.function(dm)) dm else function() dm
     model  <- shiny::reactive(get_dm())
     
-    # Brand palette (teal family)
-    brand <- list(
-      primary    = "#15B3A8",  # SUSNEO teal
-      primary_lt = "#5FD4C9",  # lighter teal
-      dark       = "#0F8C86",  # deep teal
-      grid       = "#E9F7F5"   # soft gridline
-    )
+    # reactive brand palette that flips in dark mode
+    brand <- shiny::reactive({
+      if (is_dark()) {
+        list(
+          primary = "#5FD4C9",       # light teal line/bars
+          bg      = "#0e1117",       # plot bg / paper bg
+          fg      = "#e6edf3",       # axis/title/hover font
+          grid    = "#2a2f3a"        # grid/zeroline
+        )
+      } else {
+        list(
+          primary = "#15B3A8",
+          bg      = "#ffffff",
+          fg      = "#0f172a",
+          grid    = "#E9F7F5"
+        )
+      }
+    })
     
     output$filters <- shiny::renderUI({
       shiny::req(model())
@@ -150,7 +160,6 @@ mod_dashboard_server <- function(id, dm) {
       )
     })
     
-    # If you added KPI4 (energy intensity), switch it too:
     output$kpi4 <- shiny::renderUI({
       shiny::req(model(), input$dates)
       model()$set_filters(input$dates, input$sites, input$types)
@@ -163,8 +172,8 @@ mod_dashboard_server <- function(id, dm) {
     
     
     # Time series (auto day vs month)
-    output$plot_ts <- renderPlotly({
-      req(model(), input$dates)
+    output$plot_ts <- plotly::renderPlotly({
+      shiny::req(model(), input$dates)
       model()$set_filters(input$dates, input$sites, input$types)
       
       st <- model()$status()
@@ -172,46 +181,57 @@ mod_dashboard_server <- function(id, dm) {
                 (st$date_max - st$date_min) > 180) "month" else "day"
       
       ts <- model()$timeseries(by = by)
-      validate(need(nrow(ts) > 0, "No data for selected filters."))
+      shiny::validate(shiny::need(nrow(ts) > 0, "No data for selected filters."))
       
-      p <- plot_ly(
+      pal <- brand()
+      
+      p <- plotly::plot_ly(
         ts, x = ~period, y = ~value,
         type = "scatter", mode = "lines",
-        line = list(color = brand$primary, width = 3),
+        line = list(color = pal$primary, width = 3),
         hovertemplate = "%{x}<br>Consumption: %{y}<extra></extra>"
       )
-      layout(
+      plotly::layout(
         p,
         title = paste0("Time series (", by, ")"),
-        xaxis = list(title = "", gridcolor = brand$grid, zerolinecolor = brand$grid),
-        yaxis = list(title = "Consumption", gridcolor = brand$grid, zerolinecolor = brand$grid),
-        paper_bgcolor = "white", plot_bgcolor = "white"
+        font  = list(color = pal$fg),
+        xaxis = list(title = "", color = pal$fg,
+                     gridcolor = pal$grid, zerolinecolor = pal$grid, tickfont = list(color = pal$fg)),
+        yaxis = list(title = "Consumption", color = pal$fg,
+                     gridcolor = pal$grid, zerolinecolor = pal$grid, tickfont = list(color = pal$fg)),
+        paper_bgcolor = pal$bg, plot_bgcolor = pal$bg
       )
     })
     
-    # Compare by type (horizontal bars)
-    output$plot_cmp <- renderPlotly({
-      req(model(), input$dates, input$compare_by)
+    # Compare by type/site (horizontal bars)
+    output$plot_cmp <- plotly::renderPlotly({
+      shiny::req(model(), input$dates, input$compare_by)
       model()$set_filters(input$dates, input$sites, input$types)
       
       by  <- if (identical(input$compare_by, "site")) "site" else "type"
       cmp <- model()$compare(by = by)
-      validate(need(nrow(cmp) > 0, "No data for selected filters."))
+      shiny::validate(shiny::need(nrow(cmp) > 0, "No data for selected filters."))
       
       cmp <- cmp[order(cmp$value, decreasing = TRUE), ]
       cmp[[by]] <- factor(cmp[[by]], levels = rev(cmp[[by]]))
       
-      p <- plot_ly(
+      pal <- brand()
+      
+      p <- plotly::plot_ly(
         cmp, x = ~value, y = cmp[[by]],
         type = "bar", orientation = "h",
-        marker = list(color = brand$primary)
+        marker = list(color = pal$primary)
       )
-      layout(
+      plotly::layout(
         p,
         title = paste("By", by),
-        xaxis = list(title = "Consumption", gridcolor = brand$grid, zerolinecolor = brand$grid),
-        yaxis = list(title = "", categoryorder = "array", categoryarray = levels(cmp[[by]])),
-        paper_bgcolor = "white", plot_bgcolor = "white"
+        font  = list(color = pal$fg),
+        xaxis = list(title = "Consumption", color = pal$fg,
+                     gridcolor = pal$grid, zerolinecolor = pal$grid, tickfont = list(color = pal$fg)),
+        yaxis = list(title = "", color = pal$fg,
+                     categoryorder = "array", categoryarray = levels(cmp[[by]]),
+                     tickfont = list(color = pal$fg)),
+        paper_bgcolor = pal$bg, plot_bgcolor = pal$bg
       )
     })
     
