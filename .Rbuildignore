@@ -9,3 +9,4 @@
 ^bench$
 ^prof$
 ^docs$
+^run_local\.R$

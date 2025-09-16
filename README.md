@@ -1,6 +1,6 @@
 # SUSNEO Shiny App — Take-Home (Round 1)
 
-[![R-CMD-check](https://github.com/<org>/<repo>/actions/workflows/ci.yml/badge.svg)](https://github.com/<org>/<repo>/actions/workflows/ci.yml)
+[![R-CMD-check](https://github.com/mattsimonson87/susneo-shiny-matt-simonson/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/mattsimonson87/susneo-shiny-matt-simonson/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 A production-style, **golem-packaged** Shiny app: upload CSVs, validate & canonicalize, then **Append + Override** into a session dataset; KPIs and plots update with filters.
@@ -54,6 +54,17 @@ Install directly from GitHub once the app exports `run_app()`:
 pak::pak("mattsimonson87/susneo-shiny-matt-simonson")
 ```
 
+------------------------------------------------------------------------
+
+### Run locally (no install, no Rtools)
+
+You don’t need to install the package to try it.
+
+1. Clone or download this repo and open R/RStudio in the repo folder.
+2. Run:
+   ```r
+   source("run_local.R")
+   ```
 ------------------------------------------------------------------------
 
 ## Data Contract
@@ -210,6 +221,8 @@ source("bench/prof_datamodel_merge.R")  # saves profvis HTML flame graph to prof
 ├─ DESCRIPTION
 ├─ LICENSE
 ├─ README.md
+├─ run_local.R               
+├─ .Rbuildignore             
 ├─ R/
 │  ├─ app_server.R
 │  ├─ app_ui.R
@@ -220,13 +233,16 @@ source("bench/prof_datamodel_merge.R")  # saves profvis HTML flame graph to prof
 │  ├─ susneoShinyMatt-package.R
 │  └─ utils_validation.R
 ├─ inst/
-│  └─ extdata/sample_data.csv
+│  └─ extdata/
+│     └─ sample_data.csv
 ├─ tests/
 │  └─ testthat/
 │     ├─ test-validation.R
 │     ├─ test-merge.R
 │     ├─ test-filters_and_summary.R
 │     └─ testthat.R
-└─ .github/workflows/ci.yml
+└─ .github/
+   └─ workflows/
+      └─ ci.yml
 
 ```
