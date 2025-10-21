@@ -1,4 +1,4 @@
-# SUSNEO Shiny App — Take-Home (Round 1)
+# SUSNEO Shiny App
 
 [![R-CMD-check](https://github.com/mattsimonson87/susneo-shiny-matt-simonson/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/mattsimonson87/susneo-shiny-matt-simonson/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
