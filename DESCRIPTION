@@ -26,7 +26,9 @@ Imports:
     plotly,
     lubridate,
     stringr,
-    DT
+    DT,
+    ellmer,
+    shinyjs
 Suggests:
     covr,
     bench,

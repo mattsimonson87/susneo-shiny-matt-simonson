@@ -15,6 +15,7 @@ A production-style, **golem-packaged** Shiny app: upload CSVs, validate & canoni
 - **Reactive dashboard:** Date/Site/Type filters → KPIs, time-series, comparisons, summary table
 - **Provenance:** source counts + status panel
 - **Dark mode:** attribute-based `[data-bs-theme]` toggle (persisted in localStorage); Plotly styled to match
+- **AI Chat Assistant**: Ask questions about your data using GPT-5 nano (NEW!)
 
 ------------------------------------------------------------------------
 
@@ -28,6 +29,7 @@ A production-style, **golem-packaged** Shiny app: upload CSVs, validate & canoni
 - [X] Export
 - [X] Performance profiling on large files
 - [X] Dark mode toggle
+- [X] Chatbot Assistant
 
 ------------------------------------------------------------------------
 
@@ -65,6 +67,30 @@ You don’t need to install the package to try it.
    ```r
    source("run_local.R")
    ```
+------------------------------------------------------------------------
+
+### Configuration
+
+For the chat assistant to work, you need to set your OpenAI API key:
+
+**Option 1: Using .Renviron (recommended)**
+```r
+usethis::edit_r_environ()
+```
+Add this line:
+```
+OPENAI_API_KEY=sk-proj-your-key-here
+```
+Save and restart R.
+
+**Option 2: Using .env file**
+Create a `.env` file in the project root:
+```
+OPENAI_API_KEY=sk-proj-your-key-here
+```
+
+⚠️ **Important**: Never commit your API key to version control. Both `.env` and `.Renviron` are already in `.gitignore`.
+
 ------------------------------------------------------------------------
 
 ## Data Contract
@@ -145,6 +171,16 @@ You don’t need to install the package to try it.
 
 ------------------------------------------------------------------------
 
+
+### Sample Questions for Chat Assistant
+
+- "What sites use the most energy?"
+- "Which energy type has the highest emissions?"
+- "Summarize my data by site"
+- "What's the date range of the current dataset?"
+
+------------------------------------------------------------------------
+
 ## Testing & CI
 
 **Status:** 194 unit tests passing. Coverage: **41.89% overall**, **90.79%** for the core `DataModel`.
@@ -196,7 +232,7 @@ On app start, the sample is loaded and immediately visible.
 
 ## Built With
 
-golem · shiny · bslib · plotly · R6 · dplyr · tidyr · readr · lubridate · stringr · DT · testthat · GitHub Actions
+golem · shiny · bslib · plotly · R6 · dplyr · tidyr · readr · lubridate · stringr · DT · testthat · GitHub Actions · ellmer
 
 
 ------------------------------------------------------------------------
@@ -229,6 +265,7 @@ source("bench/prof_datamodel_merge.R")  # saves profvis HTML flame graph to prof
 │  ├─ class_data_model.R
 │  ├─ mod_dashboard.R
 │  ├─ mod_data_upload.R
+│  ├─ mod_chatbot.R
 │  ├─ run_app.R
 │  ├─ susneoShinyMatt-package.R
 │  └─ utils_validation.R

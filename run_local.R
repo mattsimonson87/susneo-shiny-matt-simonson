@@ -1,4 +1,8 @@
 # Run the app locally without installing the package (no Rtools needed)
+# Load environment variables from .env file
+if (file.exists(".env")) {
+  dotenv::load_dot_env(".env")
+}
 if (!requireNamespace("pkgload", quietly = TRUE)) install.packages("pkgload")
 if (!requireNamespace("pak", quietly = TRUE)) {
   install.packages("pak", repos = "https://r-lib.github.io/p/pak/dev/")

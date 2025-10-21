@@ -111,6 +111,23 @@ app_ui <- function() {
     }
     .form-switch .form-check-input:checked { background-color: #5FD4C9; border-color: #5FD4C9; }
     [data-bs-theme='dark'] .form-switch .form-check-input:not(:checked) { background-color: #3a3a3a; border-color: #3a3a3a; }
+    
+        /* Chat styling */
+    .chat-messages::-webkit-scrollbar {
+      width: 8px;
+    }
+    .chat-messages::-webkit-scrollbar-track {
+      background: var(--bs-secondary-bg);
+      border-radius: 10px;
+    }
+    .chat-messages::-webkit-scrollbar-thumb {
+      background: var(--bs-border-color);
+      border-radius: 10px;
+    }
+    [data-bs-theme='dark'] .chat-input-area {
+      background: var(--bs-secondary-bg) !important;
+      border: 1px solid var(--bs-border-color);
+    }
   ")
   
   shiny::tagList(
@@ -167,6 +184,18 @@ app_ui <- function() {
               id = "main", role = "main", class = "main-panel",
               mod_dashboard_ui("dash")
             )
+          )
+        ),
+        
+        # Chat Bot
+        bslib::nav_panel(
+          "Chat Assistant",
+          shiny::div(
+            class = "container-fluid",
+            style = "padding: 20px;",
+            shiny::h3("Energy Data Assistant"),
+            shiny::p("Ask questions about your energy consumption and emissions data."),
+            mod_chatbot_ui("chat")
           )
         ),
         

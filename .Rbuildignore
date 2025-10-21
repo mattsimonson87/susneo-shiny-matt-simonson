@@ -10,3 +10,4 @@
 ^prof$
 ^docs$
 ^run_local\.R$
+^\.env$

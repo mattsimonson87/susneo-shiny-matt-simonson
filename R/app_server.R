@@ -9,4 +9,7 @@ app_server <- function(input, output, session) {
   
   # Dashboard
   mod_dashboard_server("dash", dm = dm, is_dark = is_dark)
+  
+  # Chat assistant
+  mod_chatbot_server("chat", dm = dm)
 }
